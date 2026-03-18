@@ -12,7 +12,7 @@
           <el-input v-model="filters.dest_addr" placeholder="接收方号码" clearable style="width: 140px" />
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="filters.status" placeholder="全部" clearable style="width: 100px" @change="handleFilter">
+          <el-select v-model="filters.status" placeholder="全部" clearable style="width: 100px">
             <el-option label="全部" value="" />
             <el-option label="待处理" value="pending" />
             <el-option label="已送达" value="delivered" />
