@@ -1,76 +1,217 @@
 # SMPP Simulator
 
-SMPP短信模拟器，为短信平台提供短信发送功能测试环境。
+SMPP 短信模拟器，为短信平台提供 SMPP 协议功能测试环境。
 
 ## 功能特性
 
-- SMPP协议服务端（TCP 2775端口）
-- REST API管理接口
-- WebSocket实时推送
+- SMPP 协议服务端（TCP 2775 端口）
+- REST API 管理接口
+- WebSocket 实时推送
+- 用户认证与权限控制
 - 可配置的模拟行为
-- Docker部署支持
+- Docker 部署支持
 
 ## 快速开始
 
-### Docker部署（推荐）
+### Docker 部署（推荐）
 
 ```bash
 docker-compose up -d
 ```
 
 服务启动后：
-- SMPP端口：2775
+- SMPP 端口：2775
 - HTTP API：8080
 - 前端界面：80
 
-### 手动部署（生产环境）
+### 本地开发
 
-#### 环境要求
+**后端：**
+```bash
+cd backend
+go mod download
+go run cmd/server/main.go
+```
 
-- Go 1.21+
-- Node.js 18+ & pnpm
-- Nginx（可选，用于反向代理）
+**前端：**
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
 
-#### 1. 编译后端
+## 配置说明
+
+### 配置方式
+
+支持三种配置方式，优先级从高到低：
+
+1. **环境变量** - 最高优先级，适合容器化部署
+2. **配置文件** - YAML 格式，适合本地开发
+3. **默认值** - 兜底配置
+
+### 配置文件
+
+复制配置模板并修改：
+
+```bash
+cd backend
+cp config.example.yaml config.yaml
+```
+
+配置项说明：
+
+```yaml
+# SMPP Server
+smpp_host: "0.0.0.0"      # SMPP 监听地址
+smpp_port: "2775"          # SMPP 监听端口
+
+# HTTP Server
+http_host: "0.0.0.0"       # HTTP 监听地址
+http_port: "8080"          # HTTP 监听端口
+
+# Database
+db_path: "./smpp.db"       # SQLite 数据库路径
+
+# Auth
+admin_password: "admin123"           # 管理员密码（生产环境请修改）
+jwt_secret: "your-secret-key"        # JWT 密钥（生产环境请修改）
+jwt_expiry: 24                       # Token 有效期（小时）
+```
+
+### 环境变量
+
+所有配置项均可通过环境变量覆盖：
+
+| 环境变量 | 说明 | 默认值 |
+|----------|------|--------|
+| `SMPP_HOST` | SMPP 监听地址 | 0.0.0.0 |
+| `SMPP_PORT` | SMPP 监听端口 | 2775 |
+| `HTTP_HOST` | HTTP 监听地址 | 0.0.0.0 |
+| `HTTP_PORT` | HTTP 监听端口 | 8080 |
+| `DB_PATH` | 数据库路径 | ./smpp.db |
+| `ADMIN_PASSWORD` | 管理员密码 | admin123 |
+| `JWT_SECRET` | JWT 密钥 | smpp-simulator-secret-key |
+| `JWT_EXPIRY` | Token 有效期(小时) | 24 |
+| `CONFIG_PATH` | 指定配置文件路径 | 自动查找 |
+
+### Docker 环境变量示例
+
+```yaml
+# docker-compose.yml
+services:
+  backend:
+    environment:
+      - ADMIN_PASSWORD=your-secure-password
+      - JWT_SECRET=your-jwt-secret
+```
+
+## 用户认证
+
+### 权限说明
+
+| 页面 | 未登录 | 已登录 |
+|------|:------:|:------:|
+| 仪表盘 | ✅ | ✅ |
+| 消息列表 | ✅ | ✅ |
+| 连接管理 | ❌ | ✅ |
+| 模拟配置 | ❌ | ✅ |
+
+### 登录信息
+
+- 用户名：`admin`
+- 默认密码：`admin123`（可通过配置修改）
+
+## API 接口
+
+### 公开接口（无需认证）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | /api/auth/login | 登录获取 Token |
+| GET | /api/auth/status | 检查 Token 状态 |
+| GET | /api/stats | 统计数据 |
+| GET | /api/messages | 消息列表 |
+| GET | /api/messages/:id | 消息详情 |
+
+### 受保护接口（需要认证）
+
+请求时需在 Header 中携带 Token：
+
+```
+Authorization: Bearer <token>
+```
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/sessions | 连接列表 |
+| DELETE | /api/sessions/:id | 断开连接 |
+| POST | /api/messages/:id/deliver | 触发状态报告 |
+| GET | /api/mock/config | 获取模拟配置 |
+| PUT | /api/mock/config | 更新模拟配置 |
+
+### WebSocket
+
+连接地址：`ws://host/ws`
+
+事件类型：
+- `session_connect` - 新连接建立
+- `session_disconnect` - 连接断开
+- `message_received` - 收到消息
+- `message_delivered` - 消息已送达
+
+## 使用说明
+
+1. 配置短信平台连接到 `localhost:2775`
+2. 使用任意 system_id 和 password 进行 SMPP 绑定
+3. 发送 submit_sm 请求进行测试
+4. 通过前端界面查看消息和连接状态
+
+## SMPP 协议支持
+
+### 支持的 PDU
+
+| 命令 | 说明 |
+|------|------|
+| bind_transmitter | 发送者绑定 |
+| bind_receiver | 接收者绑定 |
+| bind_transceiver | 收发者绑定 |
+| unbind | 解除绑定 |
+| submit_sm | 提交短信 |
+| deliver_sm | 送达报告 |
+| enquire_link | 心跳检测 |
+
+### 消息编码
+
+| data_coding | 编码 | 支持状态 |
+|-------------|------|:--------:|
+| 0 | GSM7/ASCII | ✅ |
+| 8 | UCS2 (UTF-16BE) | ✅ |
+
+## 生产部署
+
+### 编译
 
 ```bash
 cd backend
 
-# 下载依赖
-go mod download
-
-# 编译（Linux）
+# Linux
 CGO_ENABLED=1 go build -o smpp-simulator ./cmd/server
 
-# 编译（Windows）
+# Windows
 go build -o smpp-simulator.exe ./cmd/server
 ```
 
-#### 2. 构建前端
+### 前端构建
 
 ```bash
 cd frontend
-
-# 安装依赖
 pnpm install
-
-# 构建生产版本
 pnpm build
-
 # 构建产物在 dist/ 目录
 ```
 
-#### 3. 运行后端
-
-```bash
-# 直接运行
-./smpp-simulator
-
-# 或使用环境变量配置
-SMPP_HOST=0.0.0.0 SMPP_PORT=2775 HTTP_HOST=0.0.0.0 HTTP_PORT=8080 ./smpp-simulator
-```
-
-#### 4. 配置 Nginx 反向代理
+### Nginx 配置
 
 ```nginx
 server {
@@ -101,9 +242,9 @@ server {
 }
 ```
 
-#### 5. 配置 Systemd 服务（Linux）
+### Systemd 服务
 
-创建服务文件 `/etc/systemd/system/smpp-simulator.service`：
+创建 `/etc/systemd/system/smpp-simulator.service`：
 
 ```ini
 [Unit]
@@ -118,13 +259,6 @@ ExecStart=/opt/smpp-simulator/smpp-simulator
 Restart=on-failure
 RestartSec=5
 
-# 环境变量
-Environment=SMPP_HOST=0.0.0.0
-Environment=SMPP_PORT=2775
-Environment=HTTP_HOST=0.0.0.0
-Environment=HTTP_PORT=8080
-Environment=DB_PATH=/opt/smpp-simulator/data/smpp.db
-
 [Install]
 WantedBy=multi-user.target
 ```
@@ -132,62 +266,16 @@ WantedBy=multi-user.target
 启动服务：
 
 ```bash
-# 创建数据目录
-mkdir -p /opt/smpp-simulator/data
-
-# 重载配置
 systemctl daemon-reload
-
-# 启动服务
-systemctl start smpp-simulator
-
-# 设置开机自启
 systemctl enable smpp-simulator
-
-# 查看状态
-systemctl status smpp-simulator
+systemctl start smpp-simulator
 ```
-
-### 本地开发
-
-**后端：**
-```bash
-cd backend
-go mod download
-go run cmd/server/main.go
-```
-
-**前端：**
-```bash
-cd frontend
-pnpm install
-pnpm dev
-```
-
-## 使用说明
-
-1. 配置短信平台连接到 `localhost:2775`
-2. 使用任意 system_id 和 password 进行绑定
-3. 发送 submit_sm 请求进行测试
-4. 通过前端界面查看消息和连接状态
-
-## API接口
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | /api/sessions | 获取连接列表 |
-| DELETE | /api/sessions/:id | 断开连接 |
-| GET | /api/messages | 消息列表 |
-| GET | /api/messages/:id | 消息详情 |
-| POST | /api/messages/:id/deliver | 触发状态报告 |
-| GET | /api/stats | 统计数据 |
-| GET/PUT | /api/mock/config | 模拟配置 |
 
 ## 技术栈
 
-- 后端：Go + Gin + SQLite
-- 前端：Vue 3 + TypeScript + Element Plus
-- 部署：Docker + docker-compose
+- **后端**：Go + Gin + SQLite
+- **前端**：Vue 3 + TypeScript + Element Plus + Pinia
+- **部署**：Docker + docker-compose
 
 ## License
 
