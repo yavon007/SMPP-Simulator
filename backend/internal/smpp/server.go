@@ -329,8 +329,14 @@ func (s *Server) handleSubmitSM(session *SessionState, pdu *PDU) []byte {
 func (s *Server) scheduleDeliveryReport(session *SessionState, msg *model.Message, delayMs int) {
 	time.Sleep(time.Duration(delayMs) * time.Millisecond)
 
-	// Update message status
+	// Check if message status is still pending before updating
 	if s.messageStore != nil {
+		currentMsg, err := s.messageStore.GetByID(msg.ID)
+		if err != nil || currentMsg.Status != "pending" {
+			log.Printf("Skipping delivery report for message %s: status changed to %s", msg.ID, currentMsg.Status)
+			return
+		}
+		// Update message status
 		s.messageStore.UpdateStatus(msg.ID, "delivered")
 	}
 
