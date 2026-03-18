@@ -71,6 +71,7 @@ func main() {
 	statsHandler := handler.NewStatsHandler(messageRepo, smppServer)
 	mockHandler := handler.NewMockHandler(mockConfigRepo, smppServer)
 	dataHandler := handler.NewDataHandler(messageRepo, sessionRepo)
+	sendMessageHandler := handler.NewSendMessageHandler(smppServer)
 	wsHandler := handler.NewWebSocketHandler(wsHub)
 
 	// Setup Gin router
@@ -111,6 +112,9 @@ func main() {
 		protected.DELETE("/data/messages", dataHandler.DeleteAllMessages)
 		protected.DELETE("/data/sessions", dataHandler.DeleteAllSessions)
 		protected.DELETE("/data/all", dataHandler.ClearAllData)
+		// Send message (deliver_sm)
+		protected.GET("/send/receivers", sendMessageHandler.ListReceivers)
+		protected.POST("/send", sendMessageHandler.SendMessage)
 	}
 
 	// WebSocket

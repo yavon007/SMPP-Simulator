@@ -111,6 +111,19 @@ func (m *SessionManager) Count() int {
 	return len(m.sessions)
 }
 
+// GetReceivers returns all sessions that can receive messages (receiver or transceiver)
+func (m *SessionManager) GetReceivers() []*SessionState {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	result := make([]*SessionState, 0)
+	for _, s := range m.sessions {
+		if s.BindType == "receiver" || s.BindType == "transceiver" {
+			result = append(result, s)
+		}
+	}
+	return result
+}
+
 // generateID generates a unique session ID
 func generateID() string {
 	return time.Now().Format("20060102150405") + randomString(6)

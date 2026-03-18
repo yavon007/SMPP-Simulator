@@ -24,6 +24,10 @@
             <el-icon><Connection /></el-icon>
             <span>连接管理</span>
           </el-menu-item>
+          <el-menu-item v-if="authStore.isAuthenticated" index="/send">
+            <el-icon><Promotion /></el-icon>
+            <span>发送消息</span>
+          </el-menu-item>
           <el-menu-item v-if="authStore.isAuthenticated" index="/config">
             <el-icon><Setting /></el-icon>
             <span>模拟配置</span>
@@ -47,7 +51,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { DataLine, Connection, Message, Setting } from '@element-plus/icons-vue'
+import { DataLine, Connection, Message, Setting, Promotion } from '@element-plus/icons-vue'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import { wsClient } from '@/utils/websocket'
 import { useAuthStore } from '@/stores/auth'

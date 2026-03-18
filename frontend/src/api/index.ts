@@ -117,4 +117,24 @@ export const dataApi = {
   clearAllData: () => api.delete<{ message: string }>('/data/all')
 }
 
+// Receiver (for sending messages)
+export interface Receiver {
+  id: string
+  system_id: string
+  bind_type: string
+  remote_addr: string
+}
+
+// Send Message API
+export const sendApi = {
+  listReceivers: () => api.get<{ data: Receiver[] }>('/send/receivers'),
+  sendMessage: (params: {
+    session_id: string
+    source_addr: string
+    dest_addr: string
+    content: string
+    encoding?: 'GSM7' | 'UCS2'
+  }) => api.post<{ message: string; session_id: string }>('/send', params)
+}
+
 export default api

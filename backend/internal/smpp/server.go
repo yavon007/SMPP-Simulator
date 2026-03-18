@@ -391,6 +391,75 @@ func (s *Server) GetSessions() []*SessionState {
 	return s.sessions.GetAll()
 }
 
+// GetReceivers returns all sessions that can receive messages
+func (s *Server) GetReceivers() []*SessionState {
+	return s.sessions.GetReceivers()
+}
+
+// SendMessageParams represents parameters for sending a message
+type SendMessageParams struct {
+	SessionID   string
+	SourceAddr  string
+	DestAddr    string
+	Content     string
+	DataCoding  byte // 0=GSM7, 8=UCS2
+}
+
+// SendMessage sends a deliver_sm to a specific session
+func (s *Server) SendMessage(params *SendMessageParams) error {
+	session := s.sessions.Get(params.SessionID)
+	if session == nil {
+		return fmt.Errorf("session not found: %s", params.SessionID)
+	}
+
+	if session.BindType != "receiver" && session.BindType != "transceiver" {
+		return fmt.Errorf("session %s cannot receive messages (bind_type: %s)", params.SessionID, session.BindType)
+	}
+
+	// Encode message content
+	var shortMessage string
+	var smLength int
+	if params.DataCoding == 8 {
+		// UCS2 encoding
+		encoded := encodeUCS2(params.Content)
+		shortMessage = string(encoded)
+		smLength = len(encoded)
+	} else {
+		// GSM7/ASCII
+		shortMessage = params.Content
+		smLength = len(params.Content)
+	}
+
+	// Build deliver_sm
+	deliverParams := &DeliverSMParams{
+		SourceAddrTon:     0,
+		SourceAddrNpi:     1,
+		SourceAddr:        params.SourceAddr,
+		DestAddrTon:       0,
+		DestAddrNpi:       1,
+		DestAddr:          params.DestAddr,
+		ESMClass:          0,
+		ProtocolID:        0,
+		PriorityFlag:      0,
+		RegisteredDelivery: 0,
+		ReplaceIfPresent:  0,
+		DataCoding:        params.DataCoding,
+		SMDefaultMsgID:    0,
+		SMLength:          byte(smLength),
+		ShortMessage:      shortMessage,
+	}
+
+	seqNum := session.NextSequenceNum()
+	deliverPDU := EncodeDeliverSM(deliverParams, seqNum)
+
+	if _, err := session.Conn.Write(deliverPDU); err != nil {
+		return fmt.Errorf("failed to send deliver_sm: %w", err)
+	}
+
+	log.Printf("Sent deliver_sm to session %s: from=%s, to=%s", params.SessionID, params.SourceAddr, params.DestAddr)
+	return nil
+}
+
 // generateMessageID generates a unique message ID
 func generateMessageID() string {
 	return fmt.Sprintf("%d%06d", time.Now().Unix(), time.Now().Nanosecond()/1000)
@@ -416,4 +485,16 @@ func decodeUCS2(data []byte) string {
 	// Convert UTF-16 to string
 	runes := utf16.Decode(codePoints)
 	return string(runes)
+}
+
+// encodeUCS2 encodes a string to UCS2 (UTF-16BE) bytes
+func encodeUCS2(s string) []byte {
+	runes := []rune(s)
+	codePoints := utf16.Encode(runes)
+	result := make([]byte, len(codePoints)*2)
+	for i, cp := range codePoints {
+		result[i*2] = byte(cp >> 8)
+		result[i*2+1] = byte(cp)
+	}
+	return result
 }
