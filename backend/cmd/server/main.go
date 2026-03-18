@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,12 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
-
 	"smpp-simulator/internal/config"
 	"smpp-simulator/internal/handler"
-	"smpp-simulator/internal/middleware"
 	"smpp-simulator/internal/model"
 	"smpp-simulator/internal/repository"
 	"smpp-simulator/internal/smpp"
@@ -25,6 +20,9 @@ import (
 func main() {
 	// Load configuration
 	cfg := config.Load()
+
+	// Check for insecure defaults
+	cfg.CheckSecurityWarnings()
 
 	// Initialize database
 	db, err := repository.NewDatabase(cfg.DBPath)
@@ -53,10 +51,7 @@ func main() {
 	go wsHub.Run()
 
 	// Set event handler for real-time updates
-	smppServer.SetEventHandler(&eventHandler{
-		sessionRepo: sessionRepo,
-		wsHub:       wsHub,
-	})
+	smppServer.SetEventHandler(NewEventHandler(sessionRepo, wsHub))
 
 	// Start SMPP server
 	if err := smppServer.Start(); err != nil {
@@ -72,57 +67,19 @@ func main() {
 	mockHandler := handler.NewMockHandler(mockConfigRepo, smppServer)
 	dataHandler := handler.NewDataHandler(messageRepo, sessionRepo)
 	sendMessageHandler := handler.NewSendMessageHandler(smppServer)
-	wsHandler := handler.NewWebSocketHandler(wsHub)
+	wsHandler := handler.NewWebSocketHandler(wsHub, cfg.JWTSecret)
 
-	// Setup Gin router
-	gin.SetMode(gin.ReleaseMode)
-	router := gin.Default()
-
-	// CORS middleware
-	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	}))
-
-	// API routes
-	api := router.Group("/api")
-	{
-		// Public routes (no auth required)
-		api.POST("/auth/login", authHandler.Login)
-		api.GET("/auth/status", authHandler.Status)
-		api.GET("/stats", statsHandler.Get)
-		api.GET("/messages", messageHandler.List)
-		api.GET("/messages/:id", messageHandler.Get)
-	}
-
-	// Protected routes (auth required)
-	protected := api.Group("")
-	protected.Use(middleware.AuthMiddleware(cfg.JWTSecret))
-	{
-		protected.GET("/sessions", sessionHandler.List)
-		protected.DELETE("/sessions/:id", sessionHandler.Delete)
-		protected.POST("/messages/:id/deliver", messageHandler.Deliver)
-		protected.POST("/messages/:id/fail", messageHandler.Fail)
-		protected.GET("/mock/config", mockHandler.Get)
-		protected.PUT("/mock/config", mockHandler.Update)
-		protected.DELETE("/data/messages", dataHandler.DeleteAllMessages)
-		protected.DELETE("/data/sessions", dataHandler.DeleteAllSessions)
-		protected.DELETE("/data/all", dataHandler.ClearAllData)
-		// Send message (deliver_sm)
-		protected.GET("/send/receivers", sendMessageHandler.ListReceivers)
-		protected.POST("/send", sendMessageHandler.SendMessage)
-	}
-
-	// WebSocket
-	router.GET("/ws", wsHandler.Handle)
-
-	// Health check
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	// Setup router
+	router := SetupRouter(&RouterConfig{
+		JWTSecret:      cfg.JWTSecret,
+		AuthHandler:    authHandler,
+		SessionHandler: sessionHandler,
+		MessageHandler: messageHandler,
+		StatsHandler:   statsHandler,
+		MockHandler:    mockHandler,
+		DataHandler:    dataHandler,
+		SendHandler:    sendMessageHandler,
+		WsHandler:      wsHandler,
 	})
 
 	// Start HTTP server
@@ -159,56 +116,4 @@ func main() {
 	}
 
 	log.Println("Server stopped")
-}
-
-// eventHandler implements smpp.EventHandler
-type eventHandler struct {
-	sessionRepo *repository.SessionRepository
-	wsHub       *handler.WebSocketHub
-}
-
-func (h *eventHandler) OnSessionConnect(session *model.Session) {
-	// Save session to database
-	if err := h.sessionRepo.Save(session); err != nil {
-		log.Printf("Failed to save session: %v", err)
-	}
-
-	// Broadcast to WebSocket clients
-	data, _ := json.Marshal(map[string]interface{}{
-		"type":    "session_connect",
-		"session": session,
-	})
-	h.wsHub.Broadcast(data)
-}
-
-func (h *eventHandler) OnSessionDisconnect(sessionID string) {
-	// Update session status
-	if err := h.sessionRepo.UpdateStatus(sessionID, "closed"); err != nil {
-		log.Printf("Failed to update session status: %v", err)
-	}
-
-	// Broadcast to WebSocket clients
-	data, _ := json.Marshal(map[string]interface{}{
-		"type":       "session_disconnect",
-		"session_id": sessionID,
-	})
-	h.wsHub.Broadcast(data)
-}
-
-func (h *eventHandler) OnMessageReceived(msg *model.Message) {
-	// Broadcast to WebSocket clients
-	data, _ := json.Marshal(map[string]interface{}{
-		"type":    "message_received",
-		"message": msg,
-	})
-	h.wsHub.Broadcast(data)
-}
-
-func (h *eventHandler) OnMessageDelivered(msgID string) {
-	// Broadcast to WebSocket clients
-	data, _ := json.Marshal(map[string]interface{}{
-		"type":       "message_delivered",
-		"message_id": msgID,
-	})
-	h.wsHub.Broadcast(data)
 }

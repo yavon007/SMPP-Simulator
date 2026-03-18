@@ -44,30 +44,20 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed } from 'vue'
+import { onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useSessionStore } from '@/stores'
-import { wsClient } from '@/utils/websocket'
+import { useWebSocketEvents } from '@/composables/useWebSocketEvents'
+import { formatTime } from '@/utils/format'
+import { getBindTypeColor } from '@/utils/session'
+import type { Session } from '@/types'
 
 const sessionStore = useSessionStore()
 
 const sessions = computed(() => sessionStore.sessions)
 const loading = computed(() => sessionStore.loading)
 
-const getBindTypeColor = (type: string) => {
-  const colors: Record<string, string> = {
-    transmitter: 'primary',
-    receiver: 'success',
-    transceiver: 'warning'
-  }
-  return colors[type] || 'info'
-}
-
-const formatTime = (time: string) => {
-  return new Date(time).toLocaleString('zh-CN')
-}
-
-const handleDisconnect = async (session: any) => {
+const handleDisconnect = async (session: Session) => {
   try {
     await ElMessageBox.confirm(
       `确定要断开连接 "${session.system_id}" 吗？`,
@@ -81,26 +71,18 @@ const handleDisconnect = async (session: any) => {
   }
 }
 
-const handleWsSessionConnect = (data: any) => {
-  sessionStore.addSession(data.session)
-}
-
-const handleWsSessionDisconnect = (data: any) => {
-  sessionStore.removeSession(data.session_id)
-}
+// WebSocket event handlers
+useWebSocketEvents({
+  onSessionConnect: (session: Session) => {
+    sessionStore.addSession(session)
+  },
+  onSessionDisconnect: (sessionId: string) => {
+    sessionStore.removeSession(sessionId)
+  }
+})
 
 onMounted(async () => {
   await sessionStore.fetchSessions()
-
-  // Register WebSocket event handlers
-  wsClient.on('session_connect', handleWsSessionConnect)
-  wsClient.on('session_disconnect', handleWsSessionDisconnect)
-})
-
-onUnmounted(() => {
-  // Unregister WebSocket event handlers
-  wsClient.off('session_connect', handleWsSessionConnect)
-  wsClient.off('session_disconnect', handleWsSessionDisconnect)
 })
 </script>
 

@@ -3,10 +3,13 @@ package handler
 import (
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+
+	"smpp-simulator/pkg/jwt"
 )
 
 var upgrader = websocket.Upgrader{
@@ -109,21 +112,47 @@ func (c *WebSocketClient) readPump(h *WebSocketHub) {
 
 // WebSocketHandler handles WebSocket connections
 type WebSocketHandler struct {
-	hub *WebSocketHub
+	hub      *WebSocketHub
+	jwtSecret string
 }
 
 // NewWebSocketHandler creates a new WebSocket handler
-func NewWebSocketHandler(hub *WebSocketHub) *WebSocketHandler {
-	return &WebSocketHandler{hub: hub}
+func NewWebSocketHandler(hub *WebSocketHub, jwtSecret string) *WebSocketHandler {
+	return &WebSocketHandler{hub: hub, jwtSecret: jwtSecret}
 }
 
 // Handle handles WebSocket upgrade
 func (h *WebSocketHandler) Handle(c *gin.Context) {
+	// Authenticate via query parameter token
+	token := c.Query("token")
+	if token == "" {
+		// Also check Authorization header
+		authHeader := c.GetHeader("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			token = strings.TrimPrefix(authHeader, "Bearer ")
+		}
+	}
+
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing authentication token"})
+		return
+	}
+
+	// Validate JWT token
+	claims, err := jwt.ValidateToken(token, h.jwtSecret)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		return
+	}
+
+	// Token is valid, proceed with WebSocket upgrade
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Printf("WebSocket upgrade error: %v", err)
 		return
 	}
+
+	log.Printf("WebSocket client authenticated: %s", claims.Username)
 
 	client := &WebSocketClient{
 		conn: conn,

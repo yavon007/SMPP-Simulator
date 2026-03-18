@@ -20,7 +20,13 @@ class WebSocketClient {
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${protocol}//${window.location.host}${this._url}`
+    const token = localStorage.getItem('token')
+
+    // Build WebSocket URL with token for authentication
+    let wsUrl = `${protocol}//${window.location.host}${this._url}`
+    if (token) {
+      wsUrl += `?token=${encodeURIComponent(token)}`
+    }
 
     this.ws = new WebSocket(wsUrl)
 
@@ -44,9 +50,16 @@ class WebSocketClient {
       }
     }
 
-    this.ws.onclose = () => {
-      console.log('WebSocket disconnected')
+    this.ws.onclose = (event) => {
+      console.log('WebSocket disconnected', event.code, event.reason)
       this.stopHeartbeat()
+
+      // Don't reconnect if authentication failed (401)
+      if (event.code === 1008) {
+        console.error('WebSocket authentication failed')
+        return
+      }
+
       this.scheduleReconnect()
     }
 

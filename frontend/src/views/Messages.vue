@@ -113,11 +113,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, computed } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useMessageStore } from '@/stores'
 import { messageApi } from '@/api'
-import { wsClient } from '@/utils/websocket'
+import { useWebSocketEvents } from '@/composables/useWebSocketEvents'
+import { formatTime } from '@/utils/format'
+import { getStatusType, getStatusText } from '@/utils/message'
+import type { Message } from '@/types'
 
 const messageStore = useMessageStore()
 
@@ -172,29 +175,7 @@ const dateShortcuts = [
 ]
 
 const detailVisible = ref(false)
-const currentMessage = ref<any>(null)
-
-const getStatusType = (status: string) => {
-  const types: Record<string, string> = {
-    pending: 'warning',
-    delivered: 'success',
-    failed: 'danger'
-  }
-  return types[status] || 'info'
-}
-
-const getStatusText = (status: string) => {
-  const texts: Record<string, string> = {
-    pending: '待处理',
-    delivered: '已送达',
-    failed: '失败'
-  }
-  return texts[status] || status
-}
-
-const formatTime = (time: string) => {
-  return new Date(time).toLocaleString('zh-CN')
-}
+const currentMessage = ref<Message | null>(null)
 
 const getFilterParams = () => {
   const params: Record<string, string> = {
@@ -227,12 +208,12 @@ const handleSizeChange = (newSize: number) => {
   messageStore.fetchMessages({ ...getFilterParams(), page: 1, page_size: newSize })
 }
 
-const handleDetail = (row: any) => {
+const handleDetail = (row: Message) => {
   currentMessage.value = row
   detailVisible.value = true
 }
 
-const handleDeliver = async (row: any) => {
+const handleDeliver = async (row: Message) => {
   try {
     await messageApi.deliver(row.id)
     ElMessage.success('已标记为送达')
@@ -242,7 +223,7 @@ const handleDeliver = async (row: any) => {
   }
 }
 
-const handleFail = async (row: any) => {
+const handleFail = async (row: Message) => {
   try {
     await messageApi.fail(row.id)
     ElMessage.success('已标记为失败')
@@ -252,31 +233,22 @@ const handleFail = async (row: any) => {
   }
 }
 
-const handleWsMessageReceived = (data: any) => {
-  // Only add if matches current filters
-  const msg = data.message
-  if (filters.value.status && filters.value.status !== msg.status) return
-  if (filters.value.source_addr && !msg.source_addr.includes(filters.value.source_addr)) return
-  if (filters.value.dest_addr && !msg.dest_addr.includes(filters.value.dest_addr)) return
-  messageStore.addMessage(msg)
-}
-
-const handleWsMessageDelivered = (data: any) => {
-  messageStore.updateMessageStatus(data.message_id, 'delivered')
-}
+// WebSocket event handlers
+useWebSocketEvents({
+  onMessageReceived: (msg: Message) => {
+    // Only add if matches current filters
+    if (filters.value.status && filters.value.status !== msg.status) return
+    if (filters.value.source_addr && !msg.source_addr.includes(filters.value.source_addr)) return
+    if (filters.value.dest_addr && !msg.dest_addr.includes(filters.value.dest_addr)) return
+    messageStore.addMessage(msg)
+  },
+  onMessageDelivered: (messageId: string) => {
+    messageStore.updateMessageStatus(messageId, 'delivered')
+  }
+})
 
 onMounted(async () => {
   await messageStore.fetchMessages()
-
-  // Register WebSocket event handlers
-  wsClient.on('message_received', handleWsMessageReceived)
-  wsClient.on('message_delivered', handleWsMessageDelivered)
-})
-
-onUnmounted(() => {
-  // Unregister WebSocket event handlers
-  wsClient.off('message_received', handleWsMessageReceived)
-  wsClient.off('message_delivered', handleWsMessageDelivered)
 })
 </script>
 

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -113,5 +114,25 @@ func overrideWithEnv(cfg *Config) {
 		if i, err := strconv.Atoi(v); err == nil {
 			cfg.JWTExpiry = i
 		}
+	}
+}
+
+// CheckSecurityWarnings checks for insecure default configurations
+// and logs warnings if found
+func (c *Config) CheckSecurityWarnings() {
+	warnings := false
+
+	if c.AdminPassword == "admin123" {
+		log.Println("WARNING: Using default admin password 'admin123'. Please change it via ADMIN_PASSWORD environment variable or config file.")
+		warnings = true
+	}
+
+	if c.JWTSecret == "smpp-simulator-secret-key" {
+		log.Println("WARNING: Using default JWT secret. Please change it via JWT_SECRET environment variable or config file.")
+		warnings = true
+	}
+
+	if warnings {
+		log.Println("WARNING: Default credentials detected. This is insecure for production use.")
 	}
 }

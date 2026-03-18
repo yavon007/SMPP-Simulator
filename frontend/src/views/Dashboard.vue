@@ -83,10 +83,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed } from 'vue'
+import { onMounted, computed } from 'vue'
 import { Connection, Message, Clock, CircleCheck } from '@element-plus/icons-vue'
 import { useStatsStore, useMessageStore } from '@/stores'
 import { wsClient } from '@/utils/websocket'
+import { useWebSocketEvents } from '@/composables/useWebSocketEvents'
+import { formatTime } from '@/utils/format'
+import { getStatusType, getStatusText } from '@/utils/message'
+import type { Message as MessageType } from '@/types'
 
 const statsStore = useStatsStore()
 const messageStore = useMessageStore()
@@ -95,44 +99,22 @@ const stats = computed(() => statsStore.stats)
 const recentMessages = computed(() => messageStore.messages.slice(0, 10))
 const loading = computed(() => messageStore.loading)
 
-const getStatusType = (status: string) => {
-  const types: Record<string, string> = {
-    pending: 'warning',
-    delivered: 'success',
-    failed: 'danger'
+// WebSocket event handlers
+useWebSocketEvents({
+  onMessageReceived: (message: MessageType) => {
+    messageStore.addMessage(message)
+    statsStore.updateStats({ total_messages: stats.value.total_messages + 1 })
+  },
+  onMessageDelivered: () => {
+    statsStore.fetchStats()
+  },
+  onSessionConnect: () => {
+    statsStore.updateStats({ active_connections: stats.value.active_connections + 1 })
+  },
+  onSessionDisconnect: () => {
+    statsStore.updateStats({ active_connections: Math.max(0, stats.value.active_connections - 1) })
   }
-  return types[status] || 'info'
-}
-
-const getStatusText = (status: string) => {
-  const texts: Record<string, string> = {
-    pending: '待处理',
-    delivered: '已送达',
-    failed: '失败'
-  }
-  return texts[status] || status
-}
-
-const formatTime = (time: string) => {
-  return new Date(time).toLocaleString('zh-CN')
-}
-
-const handleWsMessageReceived = (data: any) => {
-  messageStore.addMessage(data.message)
-  statsStore.updateStats({ total_messages: stats.value.total_messages + 1 })
-}
-
-const handleWsMessageDelivered = () => {
-  statsStore.fetchStats()
-}
-
-const handleWsSessionConnect = () => {
-  statsStore.updateStats({ active_connections: stats.value.active_connections + 1 })
-}
-
-const handleWsSessionDisconnect = () => {
-  statsStore.updateStats({ active_connections: Math.max(0, stats.value.active_connections - 1) })
-}
+})
 
 onMounted(async () => {
   await Promise.all([
@@ -140,19 +122,8 @@ onMounted(async () => {
     messageStore.fetchMessages({ page_size: 10 })
   ])
 
-  // Register WebSocket event handlers
-  wsClient.on('message_received', handleWsMessageReceived)
-  wsClient.on('message_delivered', handleWsMessageDelivered)
-  wsClient.on('session_connect', handleWsSessionConnect)
-  wsClient.on('session_disconnect', handleWsSessionDisconnect)
-})
-
-onUnmounted(() => {
-  // Unregister WebSocket event handlers
-  wsClient.off('message_received', handleWsMessageReceived)
-  wsClient.off('message_delivered', handleWsMessageDelivered)
-  wsClient.off('session_connect', handleWsSessionConnect)
-  wsClient.off('session_disconnect', handleWsSessionDisconnect)
+  // Connect WebSocket
+  wsClient.connect()
 })
 </script>
 
