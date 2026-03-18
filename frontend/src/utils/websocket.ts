@@ -7,6 +7,8 @@ class WebSocketClient {
   private reconnectTimer: number | null = null
   private reconnectAttempts = 0
   private maxReconnectAttempts = 5
+  private heartbeatTimer: number | null = null
+  private heartbeatInterval = 30000 // 30 seconds
 
   constructor(url: string) {
     this._url = url
@@ -25,6 +27,7 @@ class WebSocketClient {
     this.ws.onopen = () => {
       console.log('WebSocket connected')
       this.reconnectAttempts = 0
+      this.startHeartbeat()
     }
 
     this.ws.onmessage = (event) => {
@@ -43,11 +46,28 @@ class WebSocketClient {
 
     this.ws.onclose = () => {
       console.log('WebSocket disconnected')
+      this.stopHeartbeat()
       this.scheduleReconnect()
     }
 
     this.ws.onerror = (error) => {
       console.error('WebSocket error:', error)
+    }
+  }
+
+  private startHeartbeat() {
+    this.stopHeartbeat()
+    this.heartbeatTimer = window.setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ type: 'ping' }))
+      }
+    }, this.heartbeatInterval)
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer)
+      this.heartbeatTimer = null
     }
   }
 
@@ -86,6 +106,7 @@ class WebSocketClient {
   }
 
   disconnect() {
+    this.stopHeartbeat()
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
     }

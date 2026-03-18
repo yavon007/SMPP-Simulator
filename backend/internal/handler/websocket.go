@@ -96,9 +96,13 @@ func (c *WebSocketClient) readPump(h *WebSocketHub) {
 		c.conn.Close()
 	}()
 	for {
-		_, _, err := c.conn.ReadMessage()
+		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			break
+		}
+		// Handle ping/pong heartbeat
+		if string(message) == `{"type":"ping"}` {
+			c.send <- []byte(`{"type":"pong"}`)
 		}
 	}
 }
