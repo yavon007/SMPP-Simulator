@@ -106,15 +106,15 @@ func (h *MessageHandler) updateStatus(c *gin.Context, status string) {
 
 // StatsHandler handles statistics requests
 type StatsHandler struct {
-	msgRepo     *repository.MessageRepository
-	sessionRepo *repository.SessionRepository
+	msgRepo    *repository.MessageRepository
+	smppServer *smpp.Server
 }
 
 // NewStatsHandler creates a new stats handler
-func NewStatsHandler(msgRepo *repository.MessageRepository, sessionRepo *repository.SessionRepository) *StatsHandler {
+func NewStatsHandler(msgRepo *repository.MessageRepository, smppServer *smpp.Server) *StatsHandler {
 	return &StatsHandler{
-		msgRepo:     msgRepo,
-		sessionRepo: sessionRepo,
+		msgRepo:    msgRepo,
+		smppServer: smppServer,
 	}
 }
 
@@ -126,20 +126,8 @@ func (h *StatsHandler) Get(c *gin.Context) {
 		return
 	}
 
-	// Get active sessions count
-	sessions, err := h.sessionRepo.GetAll()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	activeCount := 0
-	for _, s := range sessions {
-		if s.Status == "active" {
-			activeCount++
-		}
-	}
-	stats.ActiveConnections = activeCount
+	// Get active sessions count from SMPP server (real-time)
+	stats.ActiveConnections = len(h.smppServer.GetSessions())
 
 	c.JSON(http.StatusOK, stats)
 }

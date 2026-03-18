@@ -68,7 +68,7 @@ func main() {
 	authHandler := handler.NewAuthHandler(cfg.AdminPassword, cfg.JWTSecret, cfg.JWTExpiry)
 	sessionHandler := handler.NewSessionHandler(smppServer)
 	messageHandler := handler.NewMessageHandler(messageRepo)
-	statsHandler := handler.NewStatsHandler(messageRepo, sessionRepo)
+	statsHandler := handler.NewStatsHandler(messageRepo, smppServer)
 	mockHandler := handler.NewMockHandler(mockConfigRepo, smppServer)
 	dataHandler := handler.NewDataHandler(messageRepo, sessionRepo)
 	wsHandler := handler.NewWebSocketHandler(wsHub)
