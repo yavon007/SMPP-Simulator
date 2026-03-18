@@ -10,7 +10,7 @@ export const useSessionStore = defineStore('session', () => {
     loading.value = true
     try {
       const res = await sessionApi.list()
-      sessions.value = res.data.data
+      sessions.value = res.data.data || []
     } finally {
       loading.value = false
     }
@@ -71,7 +71,7 @@ export const useMessageStore = defineStore('message', () => {
         start_time: params.start_time,
         end_time: params.end_time
       })
-      messages.value = res.data.data
+      messages.value = res.data.data || []
       total.value = res.data.total
       page.value = res.data.page
       pageSize.value = res.data.page_size

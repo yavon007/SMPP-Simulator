@@ -139,7 +139,7 @@ func (r *SessionRepository) GetAll() ([]model.Session, error) {
 	}
 	defer rows.Close()
 
-	var sessions []model.Session
+	sessions := make([]model.Session, 0)
 	for rows.Next() {
 		var s model.Session
 		if err := rows.Scan(&s.ID, &s.SystemID, &s.BindType, &s.RemoteAddr, &s.ConnectedAt, &s.Status); err != nil {
@@ -292,7 +292,7 @@ func (r *MessageRepository) GetList(filter MessageFilter, limit, offset int) ([]
 	}
 	defer rows.Close()
 
-	var messages []model.Message
+	messages := make([]model.Message, 0)
 	for rows.Next() {
 		var msg model.Message
 		var deliveredAt sql.NullTime
