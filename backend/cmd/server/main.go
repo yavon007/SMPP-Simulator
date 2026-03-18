@@ -70,6 +70,7 @@ func main() {
 	messageHandler := handler.NewMessageHandler(messageRepo)
 	statsHandler := handler.NewStatsHandler(messageRepo, sessionRepo)
 	mockHandler := handler.NewMockHandler(mockConfigRepo, smppServer)
+	dataHandler := handler.NewDataHandler(messageRepo, sessionRepo)
 	wsHandler := handler.NewWebSocketHandler(wsHub)
 
 	// Setup Gin router
@@ -107,6 +108,9 @@ func main() {
 		protected.POST("/messages/:id/fail", messageHandler.Fail)
 		protected.GET("/mock/config", mockHandler.Get)
 		protected.PUT("/mock/config", mockHandler.Update)
+		protected.DELETE("/data/messages", dataHandler.DeleteAllMessages)
+		protected.DELETE("/data/sessions", dataHandler.DeleteAllSessions)
+		protected.DELETE("/data/all", dataHandler.ClearAllData)
 	}
 
 	// WebSocket

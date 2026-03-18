@@ -356,6 +356,46 @@ func (r *MessageRepository) GetStats() (*model.Stats, error) {
 	return stats, nil
 }
 
+// DeleteMessage deletes a message by ID
+func (r *MessageRepository) DeleteMessage(id string) error {
+	r.db.mu.Lock()
+	defer r.db.mu.Unlock()
+
+	_, err := r.db.db.Exec(`DELETE FROM messages WHERE id = ?`, id)
+	return err
+}
+
+// DeleteAllMessages deletes all messages
+func (r *MessageRepository) DeleteAllMessages() error {
+	r.db.mu.Lock()
+	defer r.db.mu.Unlock()
+
+	_, err := r.db.db.Exec(`DELETE FROM messages`)
+	return err
+}
+
+// DeleteAllSessions deletes all sessions
+func (r *SessionRepository) DeleteAllSessions() error {
+	r.db.mu.Lock()
+	defer r.db.mu.Unlock()
+
+	_, err := r.db.db.Exec(`DELETE FROM sessions`)
+	return err
+}
+
+// ClearAllData deletes all messages and sessions
+func (d *Database) ClearAllData() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	_, err := d.db.Exec(`DELETE FROM messages`)
+	if err != nil {
+		return err
+	}
+	_, err = d.db.Exec(`DELETE FROM sessions`)
+	return err
+}
+
 // MockConfigRepository handles mock configuration
 type MockConfigRepository struct {
 	db *Database

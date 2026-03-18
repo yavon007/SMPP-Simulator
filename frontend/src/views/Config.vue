@@ -37,6 +37,27 @@
       </el-form>
     </el-card>
 
+    <!-- Data Management -->
+    <el-card class="data-card">
+      <template #header>
+        <span>数据管理</span>
+      </template>
+      <div class="data-actions">
+        <div class="data-action-item">
+          <span>清空消息记录</span>
+          <el-button type="warning" @click="handleDeleteMessages">清空消息</el-button>
+        </div>
+        <div class="data-action-item">
+          <span>清空连接记录</span>
+          <el-button type="warning" @click="handleDeleteSessions">清空连接</el-button>
+        </div>
+        <div class="data-action-item">
+          <span>清空所有数据</span>
+          <el-button type="danger" @click="handleClearAll">清空全部</el-button>
+        </div>
+      </div>
+    </el-card>
+
     <!-- Help Section -->
     <el-card class="help-card">
       <template #header>
@@ -64,10 +85,13 @@
 
 <script setup lang="ts">
 import { onMounted, computed, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { useConfigStore } from '@/stores'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useConfigStore, useMessageStore, useSessionStore } from '@/stores'
+import { dataApi } from '@/api'
 
 const configStore = useConfigStore()
+const messageStore = useMessageStore()
+const sessionStore = useSessionStore()
 
 const config = computed(() => configStore.config)
 const loading = computed(() => configStore.loading)
@@ -83,6 +107,46 @@ const handleSave = async () => {
   } finally {
     saving.value = false
   }
+}
+
+const handleDeleteMessages = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要清空所有消息记录吗？此操作不可恢复。',
+      '确认清空',
+      { type: 'warning' }
+    )
+    await dataApi.deleteAllMessages()
+    ElMessage.success('消息已清空')
+    messageStore.fetchMessages()
+  } catch {}
+}
+
+const handleDeleteSessions = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要清空所有连接记录吗？此操作不可恢复。',
+      '确认清空',
+      { type: 'warning' }
+    )
+    await dataApi.deleteAllSessions()
+    ElMessage.success('连接记录已清空')
+    sessionStore.fetchSessions()
+  } catch {}
+}
+
+const handleClearAll = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要清空所有数据（消息和连接记录）吗？此操作不可恢复。',
+      '确认清空',
+      { type: 'warning' }
+    )
+    await dataApi.clearAllData()
+    ElMessage.success('所有数据已清空')
+    messageStore.fetchMessages()
+    sessionStore.fetchSessions()
+  } catch {}
 }
 
 onMounted(() => {
@@ -105,6 +169,32 @@ onMounted(() => {
   font-size: 12px;
   color: #909399;
   margin-top: 4px;
+}
+
+.data-card {
+  margin-top: 20px;
+}
+
+.data-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.data-action-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.data-action-item:last-child {
+  border-bottom: none;
+}
+
+.data-action-item span {
+  color: #606266;
 }
 
 .help-card {

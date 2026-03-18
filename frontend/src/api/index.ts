@@ -110,4 +110,11 @@ export const authApi = {
   status: () => api.get<{ authenticated: boolean; username?: string }>('/auth/status')
 }
 
+// Data API
+export const dataApi = {
+  deleteAllMessages: () => api.delete<{ message: string }>('/data/messages'),
+  deleteAllSessions: () => api.delete<{ message: string }>('/data/sessions'),
+  clearAllData: () => api.delete<{ message: string }>('/data/all')
+}
+
 export default api
