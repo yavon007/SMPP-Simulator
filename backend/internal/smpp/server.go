@@ -30,7 +30,6 @@ type Server struct {
 // MessageStore interface for message storage
 type MessageStore interface {
 	Save(msg *model.Message) error
-	GetList(sessionID, status string, limit, offset int) ([]model.Message, int, error)
 	GetByID(id string) (*model.Message, error)
 	UpdateStatus(id string, status string) error
 }

@@ -229,19 +229,45 @@ func (r *MessageRepository) GetByMessageID(messageID string) (*model.Message, er
 	return msg, nil
 }
 
+// MessageFilter represents message filter parameters
+type MessageFilter struct {
+	SessionID string
+	Status    string
+	SourceAddr string
+	DestAddr   string
+	StartTime  string
+	EndTime    string
+}
+
 // GetList gets a paginated list of messages with filters
-func (r *MessageRepository) GetList(sessionID, status string, limit, offset int) ([]model.Message, int, error) {
+func (r *MessageRepository) GetList(filter MessageFilter, limit, offset int) ([]model.Message, int, error) {
 	// Build query with filters
 	where := "WHERE 1=1"
 	args := []interface{}{}
 
-	if sessionID != "" {
+	if filter.SessionID != "" {
 		where += " AND session_id = ?"
-		args = append(args, sessionID)
+		args = append(args, filter.SessionID)
 	}
-	if status != "" {
+	if filter.Status != "" {
 		where += " AND status = ?"
-		args = append(args, status)
+		args = append(args, filter.Status)
+	}
+	if filter.SourceAddr != "" {
+		where += " AND source_addr LIKE ?"
+		args = append(args, "%"+filter.SourceAddr+"%")
+	}
+	if filter.DestAddr != "" {
+		where += " AND dest_addr LIKE ?"
+		args = append(args, "%"+filter.DestAddr+"%")
+	}
+	if filter.StartTime != "" {
+		where += " AND created_at >= ?"
+		args = append(args, filter.StartTime)
+	}
+	if filter.EndTime != "" {
+		where += " AND created_at <= ?"
+		args = append(args, filter.EndTime)
 	}
 
 	// Get total count

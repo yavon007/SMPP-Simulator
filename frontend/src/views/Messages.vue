@@ -5,16 +5,35 @@
     <!-- Filters -->
     <el-card class="filter-card">
       <el-form :inline="true" :model="filters">
+        <el-form-item label="发送方">
+          <el-input v-model="filters.source_addr" placeholder="发送方号码" clearable style="width: 140px" />
+        </el-form-item>
+        <el-form-item label="接收方">
+          <el-input v-model="filters.dest_addr" placeholder="接收方号码" clearable style="width: 140px" />
+        </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="filters.status" placeholder="全部" clearable @change="handleFilter">
+          <el-select v-model="filters.status" placeholder="全部" clearable style="width: 100px" @change="handleFilter">
             <el-option label="全部" value="" />
             <el-option label="待处理" value="pending" />
             <el-option label="已送达" value="delivered" />
             <el-option label="失败" value="failed" />
           </el-select>
         </el-form-item>
+        <el-form-item label="时间范围">
+          <el-date-picker
+            v-model="dateRange"
+            type="datetimerange"
+            range-separator="至"
+            start-placeholder="开始时间"
+            end-placeholder="结束时间"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 360px"
+            :shortcuts="dateShortcuts"
+          />
+        </el-form-item>
         <el-form-item>
-          <el-button @click="handleRefresh">刷新</el-button>
+          <el-button type="primary" @click="handleFilter">查询</el-button>
+          <el-button @click="handleReset">重置</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -115,8 +134,42 @@ const pageSize = computed({
 const loading = computed(() => messageStore.loading)
 
 const filters = ref({
-  status: ''
+  status: '',
+  source_addr: '',
+  dest_addr: ''
 })
+
+const dateRange = ref<[string, string] | null>(null)
+
+const dateShortcuts = [
+  {
+    text: '今天',
+    value: () => {
+      const start = new Date()
+      start.setHours(0, 0, 0, 0)
+      const end = new Date()
+      return [start, end]
+    }
+  },
+  {
+    text: '最近7天',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setTime(start.getTime() - 7 * 24 * 3600 * 1000)
+      return [start, end]
+    }
+  },
+  {
+    text: '最近30天',
+    value: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setTime(start.getTime() - 30 * 24 * 3600 * 1000)
+      return [start, end]
+    }
+  }
+]
 
 const detailVisible = ref(false)
 const currentMessage = ref<any>(null)
@@ -143,20 +196,35 @@ const formatTime = (time: string) => {
   return new Date(time).toLocaleString('zh-CN')
 }
 
-const handleFilter = () => {
-  messageStore.fetchMessages({ status: filters.value.status, page: 1 })
+const getFilterParams = () => {
+  const params: Record<string, string> = {
+    status: filters.value.status,
+    source_addr: filters.value.source_addr,
+    dest_addr: filters.value.dest_addr
+  }
+  if (dateRange.value && dateRange.value.length === 2) {
+    params.start_time = dateRange.value[0]
+    params.end_time = dateRange.value[1]
+  }
+  return params
 }
 
-const handleRefresh = () => {
-  messageStore.fetchMessages({ status: filters.value.status })
+const handleFilter = () => {
+  messageStore.fetchMessages({ ...getFilterParams(), page: 1 })
+}
+
+const handleReset = () => {
+  filters.value = { status: '', source_addr: '', dest_addr: '' }
+  dateRange.value = null
+  messageStore.fetchMessages({ page: 1 })
 }
 
 const handlePageChange = (newPage: number) => {
-  messageStore.fetchMessages({ status: filters.value.status, page: newPage })
+  messageStore.fetchMessages({ ...getFilterParams(), page: newPage })
 }
 
 const handleSizeChange = (newSize: number) => {
-  messageStore.fetchMessages({ status: filters.value.status, page: 1, page_size: newSize })
+  messageStore.fetchMessages({ ...getFilterParams(), page: 1, page_size: newSize })
 }
 
 const handleDetail = (row: any) => {
@@ -175,9 +243,12 @@ const handleDeliver = async (row: any) => {
 }
 
 const handleWsMessageReceived = (data: any) => {
-  if (!filters.value.status || filters.value.status === data.message.status) {
-    messageStore.addMessage(data.message)
-  }
+  // Only add if matches current filters
+  const msg = data.message
+  if (filters.value.status && filters.value.status !== msg.status) return
+  if (filters.value.source_addr && !msg.source_addr.includes(filters.value.source_addr)) return
+  if (filters.value.dest_addr && !msg.dest_addr.includes(filters.value.dest_addr)) return
+  messageStore.addMessage(msg)
 }
 
 const handleWsMessageDelivered = (data: any) => {

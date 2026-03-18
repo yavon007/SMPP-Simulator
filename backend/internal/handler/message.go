@@ -24,8 +24,14 @@ func NewMessageHandler(repo *repository.MessageRepository) *MessageHandler {
 // List returns messages with pagination and filters
 func (h *MessageHandler) List(c *gin.Context) {
 	// Parse query parameters
-	sessionID := c.Query("session_id")
-	status := c.Query("status")
+	filter := repository.MessageFilter{
+		SessionID:  c.Query("session_id"),
+		Status:     c.Query("status"),
+		SourceAddr: c.Query("source_addr"),
+		DestAddr:   c.Query("dest_addr"),
+		StartTime:  c.Query("start_time"),
+		EndTime:    c.Query("end_time"),
+	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
@@ -35,7 +41,7 @@ func (h *MessageHandler) List(c *gin.Context) {
 
 	offset := (page - 1) * pageSize
 
-	messages, total, err := h.repo.GetList(sessionID, status, pageSize, offset)
+	messages, total, err := h.repo.GetList(filter, pageSize, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

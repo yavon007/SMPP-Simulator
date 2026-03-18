@@ -52,6 +52,10 @@ export const useMessageStore = defineStore('message', () => {
   async function fetchMessages(params: {
     session_id?: string
     status?: string
+    source_addr?: string
+    dest_addr?: string
+    start_time?: string
+    end_time?: string
     page?: number
     page_size?: number
   } = {}) {
@@ -61,7 +65,11 @@ export const useMessageStore = defineStore('message', () => {
         page: params.page || page.value,
         page_size: params.page_size || pageSize.value,
         session_id: params.session_id,
-        status: params.status
+        status: params.status,
+        source_addr: params.source_addr,
+        dest_addr: params.dest_addr,
+        start_time: params.start_time,
+        end_time: params.end_time
       })
       messages.value = res.data.data
       total.value = res.data.total

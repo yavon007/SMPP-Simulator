@@ -80,6 +80,10 @@ export const messageApi = {
   list: (params: {
     session_id?: string
     status?: string
+    source_addr?: string
+    dest_addr?: string
+    start_time?: string
+    end_time?: string
     page?: number
     page_size?: number
   }) => api.get<{ data: Message[], total: number, page: number, page_size: number }>('/messages', { params }),
