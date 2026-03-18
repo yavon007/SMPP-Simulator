@@ -9,6 +9,7 @@ import (
 	"net"
 	"sync"
 	"time"
+	"unicode/utf16"
 
 	"smpp-simulator/internal/model"
 )
@@ -249,12 +250,20 @@ func (s *Server) handleSubmitSM(session *SessionState, pdu *PDU) []byte {
 	// Generate message ID
 	messageID := generateMessageID()
 
-	// Determine encoding
-	encoding := "ASCII"
-	if params.DataCoding == 8 {
+	// Determine encoding and decode message content properly
+	var content string
+	var encoding string
+
+	switch params.DataCoding {
+	case 8: // UCS2 (UTF-16BE)
 		encoding = "UCS2"
-	} else if params.DataCoding == 0 {
+		content = decodeUCS2(params.ShortMessageBytes)
+	case 0: // GSM7 or ASCII
 		encoding = "GSM7"
+		content = params.ShortMessage
+	default: // Default to ASCII/latin1
+		encoding = "ASCII"
+		content = params.ShortMessage
 	}
 
 	// Create message record
@@ -265,7 +274,7 @@ func (s *Server) handleSubmitSM(session *SessionState, pdu *PDU) []byte {
 		SequenceNum: pdu.SequenceNum,
 		SourceAddr:  params.SourceAddr,
 		DestAddr:    params.DestAddr,
-		Content:     params.ShortMessage,
+		Content:     content,
 		Encoding:    encoding,
 		Status:      "pending",
 		CreatedAt:   time.Now(),
@@ -380,4 +389,26 @@ func (s *Server) GetSessions() []*SessionState {
 // generateMessageID generates a unique message ID
 func generateMessageID() string {
 	return fmt.Sprintf("%d%06d", time.Now().Unix(), time.Now().Nanosecond()/1000)
+}
+
+// decodeUCS2 decodes UCS2 (UTF-16BE) encoded bytes to string
+func decodeUCS2(data []byte) string {
+	if len(data) == 0 {
+		return ""
+	}
+
+	// Ensure even length for UTF-16
+	if len(data)%2 != 0 {
+		data = append(data, 0)
+	}
+
+	// Convert bytes to UTF-16 code points (big-endian)
+	codePoints := make([]uint16, len(data)/2)
+	for i := 0; i < len(data); i += 2 {
+		codePoints[i/2] = uint16(data[i])<<8 | uint16(data[i+1])
+	}
+
+	// Convert UTF-16 to string
+	runes := utf16.Decode(codePoints)
+	return string(runes)
 }

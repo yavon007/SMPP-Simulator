@@ -16,6 +16,11 @@ type Config struct {
 
 	// Database
 	DBPath string
+
+	// Auth
+	AdminPassword string
+	JWTSecret     string
+	JWTExpiry     int // hours
 }
 
 func Load() *Config {
@@ -25,6 +30,10 @@ func Load() *Config {
 		HTTPHost: getEnv("HTTP_HOST", "0.0.0.0"),
 		HTTPPort: getEnv("HTTP_PORT", "8080"),
 		DBPath:   getEnv("DB_PATH", "./smpp.db"),
+
+		AdminPassword: getEnv("ADMIN_PASSWORD", "admin123"),
+		JWTSecret:     getEnv("JWT_SECRET", "smpp-simulator-secret-key"),
+		JWTExpiry:     getEnvInt("JWT_EXPIRY", 24),
 	}
 }
 

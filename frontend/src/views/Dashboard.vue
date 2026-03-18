@@ -117,31 +117,42 @@ const formatTime = (time: string) => {
   return new Date(time).toLocaleString('zh-CN')
 }
 
+const handleWsMessageReceived = (data: any) => {
+  messageStore.addMessage(data.message)
+  statsStore.updateStats({ total_messages: stats.value.total_messages + 1 })
+}
+
+const handleWsMessageDelivered = () => {
+  statsStore.fetchStats()
+}
+
+const handleWsSessionConnect = () => {
+  statsStore.updateStats({ active_connections: stats.value.active_connections + 1 })
+}
+
+const handleWsSessionDisconnect = () => {
+  statsStore.updateStats({ active_connections: Math.max(0, stats.value.active_connections - 1) })
+}
+
 onMounted(async () => {
   await Promise.all([
     statsStore.fetchStats(),
     messageStore.fetchMessages({ page_size: 10 })
   ])
 
-  // Connect WebSocket
-  wsClient.connect()
-  wsClient.on('message_received', (data) => {
-    messageStore.addMessage(data.message)
-    statsStore.updateStats({ total_messages: stats.value.total_messages + 1 })
-  })
-  wsClient.on('message_delivered', () => {
-    statsStore.fetchStats()
-  })
-  wsClient.on('session_connect', () => {
-    statsStore.updateStats({ active_connections: stats.value.active_connections + 1 })
-  })
-  wsClient.on('session_disconnect', () => {
-    statsStore.updateStats({ active_connections: Math.max(0, stats.value.active_connections - 1) })
-  })
+  // Register WebSocket event handlers
+  wsClient.on('message_received', handleWsMessageReceived)
+  wsClient.on('message_delivered', handleWsMessageDelivered)
+  wsClient.on('session_connect', handleWsSessionConnect)
+  wsClient.on('session_disconnect', handleWsSessionDisconnect)
 })
 
 onUnmounted(() => {
-  wsClient.disconnect()
+  // Unregister WebSocket event handlers
+  wsClient.off('message_received', handleWsMessageReceived)
+  wsClient.off('message_delivered', handleWsMessageDelivered)
+  wsClient.off('session_connect', handleWsSessionConnect)
+  wsClient.off('session_disconnect', handleWsSessionDisconnect)
 })
 </script>
 

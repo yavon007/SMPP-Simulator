@@ -81,20 +81,26 @@ const handleDisconnect = async (session: any) => {
   }
 }
 
+const handleWsSessionConnect = (data: any) => {
+  sessionStore.addSession(data.session)
+}
+
+const handleWsSessionDisconnect = (data: any) => {
+  sessionStore.removeSession(data.session_id)
+}
+
 onMounted(async () => {
   await sessionStore.fetchSessions()
 
-  wsClient.connect()
-  wsClient.on('session_connect', (data) => {
-    sessionStore.addSession(data.session)
-  })
-  wsClient.on('session_disconnect', (data) => {
-    sessionStore.removeSession(data.session_id)
-  })
+  // Register WebSocket event handlers
+  wsClient.on('session_connect', handleWsSessionConnect)
+  wsClient.on('session_disconnect', handleWsSessionDisconnect)
 })
 
 onUnmounted(() => {
-  wsClient.disconnect()
+  // Unregister WebSocket event handlers
+  wsClient.off('session_connect', handleWsSessionConnect)
+  wsClient.off('session_disconnect', handleWsSessionDisconnect)
 })
 </script>
 

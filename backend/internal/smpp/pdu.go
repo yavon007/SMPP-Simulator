@@ -81,6 +81,7 @@ type SubmitSMParams struct {
 	SMDefaultMsgID    byte
 	SMLength          byte
 	ShortMessage      string
+	ShortMessageBytes []byte // Raw message bytes for proper encoding handling
 }
 
 // DeliverSMParams represents deliver_sm parameters
@@ -284,8 +285,12 @@ func DecodeSubmitSM(body []byte) *SubmitSMParams {
 		params.SMLength = body[offset]
 		offset++
 	}
-	if offset < len(body) {
-		params.ShortMessage = string(body[offset : offset+int(params.SMLength)])
+	if offset < len(body) && int(params.SMLength) > 0 {
+		endOffset := offset + int(params.SMLength)
+		if endOffset <= len(body) {
+			params.ShortMessageBytes = body[offset:endOffset]
+			params.ShortMessage = string(params.ShortMessageBytes)
+		}
 	}
 
 	return params

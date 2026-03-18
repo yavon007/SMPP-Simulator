@@ -16,19 +16,26 @@
             <el-icon><DataLine /></el-icon>
             <span>仪表盘</span>
           </el-menu-item>
-          <el-menu-item index="/sessions">
-            <el-icon><Connection /></el-icon>
-            <span>连接管理</span>
-          </el-menu-item>
           <el-menu-item index="/messages">
             <el-icon><Message /></el-icon>
             <span>消息列表</span>
           </el-menu-item>
-          <el-menu-item index="/config">
+          <el-menu-item v-if="authStore.isAuthenticated" index="/sessions">
+            <el-icon><Connection /></el-icon>
+            <span>连接管理</span>
+          </el-menu-item>
+          <el-menu-item v-if="authStore.isAuthenticated" index="/config">
             <el-icon><Setting /></el-icon>
             <span>模拟配置</span>
           </el-menu-item>
         </el-menu>
+        <div class="auth-section">
+          <template v-if="authStore.isAuthenticated">
+            <div class="user-info">{{ authStore.username }}</div>
+            <el-button type="danger" size="small" @click="handleLogout">退出登录</el-button>
+          </template>
+          <el-button v-else type="primary" size="small" @click="$router.push('/login')">登录</el-button>
+        </div>
       </el-aside>
       <el-main class="app-main">
         <router-view />
@@ -38,13 +45,32 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { DataLine, Connection, Message, Setting } from '@element-plus/icons-vue'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import { wsClient } from '@/utils/websocket'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+
 const currentRoute = computed(() => route.path)
+
+const handleLogout = () => {
+  authStore.logout()
+  router.push('/')
+}
+
+onMounted(() => {
+  wsClient.connect()
+})
+
+onUnmounted(() => {
+  wsClient.removeAllHandlers()
+  wsClient.disconnect()
+})
 </script>
 
 <style>
@@ -65,6 +91,7 @@ html, body, #app {
 .app-aside {
   background-color: #304156;
   height: 100%;
+  position: relative;
 }
 
 .logo {
@@ -85,5 +112,22 @@ html, body, #app {
   background-color: #f0f2f5;
   padding: 20px;
   overflow-y: auto;
+}
+
+.auth-section {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-info {
+  color: #bfcbd9;
+  font-size: 14px;
 }
 </style>

@@ -16,6 +16,7 @@ import (
 
 	"smpp-simulator/internal/config"
 	"smpp-simulator/internal/handler"
+	"smpp-simulator/internal/middleware"
 	"smpp-simulator/internal/model"
 	"smpp-simulator/internal/repository"
 	"smpp-simulator/internal/smpp"
@@ -64,6 +65,7 @@ func main() {
 	defer smppServer.Stop()
 
 	// Initialize handlers
+	authHandler := handler.NewAuthHandler(cfg.AdminPassword, cfg.JWTSecret, cfg.JWTExpiry)
 	sessionHandler := handler.NewSessionHandler(smppServer)
 	messageHandler := handler.NewMessageHandler(messageRepo)
 	statsHandler := handler.NewStatsHandler(messageRepo, sessionRepo)
@@ -78,7 +80,7 @@ func main() {
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
@@ -87,21 +89,23 @@ func main() {
 	// API routes
 	api := router.Group("/api")
 	{
-		// Sessions
-		api.GET("/sessions", sessionHandler.List)
-		api.DELETE("/sessions/:id", sessionHandler.Delete)
-
-		// Messages
+		// Public routes (no auth required)
+		api.POST("/auth/login", authHandler.Login)
+		api.GET("/auth/status", authHandler.Status)
+		api.GET("/stats", statsHandler.Get)
 		api.GET("/messages", messageHandler.List)
 		api.GET("/messages/:id", messageHandler.Get)
-		api.POST("/messages/:id/deliver", messageHandler.Deliver)
+	}
 
-		// Stats
-		api.GET("/stats", statsHandler.Get)
-
-		// Mock config
-		api.GET("/mock/config", mockHandler.Get)
-		api.PUT("/mock/config", mockHandler.Update)
+	// Protected routes (auth required)
+	protected := api.Group("")
+	protected.Use(middleware.AuthMiddleware(cfg.JWTSecret))
+	{
+		protected.GET("/sessions", sessionHandler.List)
+		protected.DELETE("/sessions/:id", sessionHandler.Delete)
+		protected.POST("/messages/:id/deliver", messageHandler.Deliver)
+		protected.GET("/mock/config", mockHandler.Get)
+		protected.PUT("/mock/config", mockHandler.Update)
 	}
 
 	// WebSocket

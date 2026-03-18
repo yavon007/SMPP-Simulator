@@ -174,22 +174,28 @@ const handleDeliver = async (row: any) => {
   }
 }
 
+const handleWsMessageReceived = (data: any) => {
+  if (!filters.value.status || filters.value.status === data.message.status) {
+    messageStore.addMessage(data.message)
+  }
+}
+
+const handleWsMessageDelivered = (data: any) => {
+  messageStore.updateMessageStatus(data.message_id, 'delivered')
+}
+
 onMounted(async () => {
   await messageStore.fetchMessages()
 
-  wsClient.connect()
-  wsClient.on('message_received', (data) => {
-    if (!filters.value.status || filters.value.status === data.message.status) {
-      messageStore.addMessage(data.message)
-    }
-  })
-  wsClient.on('message_delivered', (data) => {
-    messageStore.updateMessageStatus(data.message_id, 'delivered')
-  })
+  // Register WebSocket event handlers
+  wsClient.on('message_received', handleWsMessageReceived)
+  wsClient.on('message_delivered', handleWsMessageDelivered)
 })
 
 onUnmounted(() => {
-  wsClient.disconnect()
+  // Unregister WebSocket event handlers
+  wsClient.off('message_received', handleWsMessageReceived)
+  wsClient.off('message_delivered', handleWsMessageDelivered)
 })
 </script>
 

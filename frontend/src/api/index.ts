@@ -1,9 +1,33 @@
 import axios from 'axios'
+import { useAuthStore } from '@/stores/auth'
+import router from '@/router'
 
 const api = axios.create({
   baseURL: '/api',
   timeout: 10000
 })
+
+// Request interceptor - attach auth token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+// Response interceptor - handle 401 errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      const authStore = useAuthStore()
+      authStore.logout()
+      router.push('/login')
+    }
+    return Promise.reject(error)
+  }
+)
 
 // Types
 export interface Session {
@@ -72,6 +96,13 @@ export const statsApi = {
 export const mockConfigApi = {
   get: () => api.get<MockConfig>('/mock/config'),
   update: (config: MockConfig) => api.put<MockConfig>('/mock/config', config)
+}
+
+// Auth API
+export const authApi = {
+  login: (username: string, password: string) =>
+    api.post<{ token: string }>('/auth/login', { username, password }),
+  status: () => api.get<{ authenticated: boolean; username?: string }>('/auth/status')
 }
 
 export default api

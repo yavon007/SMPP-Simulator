@@ -81,6 +81,10 @@ class WebSocketClient {
     }
   }
 
+  removeAllHandlers() {
+    this.handlers.clear()
+  }
+
   disconnect() {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
