@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: smpp-backend
+    ports:
+      - "2775:2775"  # SMPP port
+      - "8080:8080"  # HTTP API port
+    volumes:
+      - smpp-data:/app/data
+    environment:
+      - SMPP_HOST=0.0.0.0
+      - SMPP_PORT=2775
+      - HTTP_HOST=0.0.0.0
+      - HTTP_PORT=8080
+      - DB_PATH=/app/data/smpp.db
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: smpp-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  smpp-data:
