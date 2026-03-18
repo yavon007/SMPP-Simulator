@@ -1,16 +1,27 @@
-# Dependencies
-frontend/node_modules/
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
 
-# Build outputs
-backend/smpp-simulator
-backend/smpp-simulator.exe
-frontend/dist/
+# Build
+/bin/
+/dist/
 
 # Database
 *.db
-*.db-journal
-*.db-wal
 *.db-shm
+*.db-wal
+
+# Config (may contain secrets)
+config.yaml
+config.yml
+configs/config.yaml
+configs/config.yml
+
+# Logs
+*.log
 
 # IDE
 .idea/
@@ -22,9 +33,9 @@ frontend/dist/
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
+# Node
+node_modules/
 
-# Environment
-.env
-.env.local
+# Temporary files
+*.tmp
+*.temp

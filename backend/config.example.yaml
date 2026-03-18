@@ -1,0 +1,18 @@
+# SMPP Simulator Configuration
+# Copy this file to config.yaml and modify as needed
+
+# SMPP Server settings
+smpp_host: "0.0.0.0"
+smpp_port: "2775"
+
+# HTTP Server settings
+http_host: "0.0.0.0"
+http_port: "8080"
+
+# Database
+db_path: "./smpp.db"
+
+# Authentication
+admin_password: "admin123"      # Change this in production!
+jwt_secret: "smpp-simulator-secret-key"  # Change this in production!
+jwt_expiry: 24  # hours
