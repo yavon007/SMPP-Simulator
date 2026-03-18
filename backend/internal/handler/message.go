@@ -70,6 +70,16 @@ func (h *MessageHandler) Get(c *gin.Context) {
 
 // Deliver triggers a delivery report for a message
 func (h *MessageHandler) Deliver(c *gin.Context) {
+	h.updateStatus(c, "delivered")
+}
+
+// Fail marks a message as failed
+func (h *MessageHandler) Fail(c *gin.Context) {
+	h.updateStatus(c, "failed")
+}
+
+// updateStatus updates message status
+func (h *MessageHandler) updateStatus(c *gin.Context, status string) {
 	id := c.Param("id")
 
 	// Get message
@@ -79,18 +89,18 @@ func (h *MessageHandler) Deliver(c *gin.Context) {
 		return
 	}
 
-	// Update status to delivered
-	if err := h.repo.UpdateStatus(id, "delivered"); err != nil {
+	// Update status
+	if err := h.repo.UpdateStatus(id, status); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":      "delivery report sent",
+		"message":      "status updated",
 		"message_id":   msg.MessageID,
 		"source_addr":  msg.SourceAddr,
 		"dest_addr":    msg.DestAddr,
-		"status":       "delivered",
+		"status":       status,
 	})
 }
 

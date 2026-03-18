@@ -104,6 +104,7 @@ func main() {
 		protected.GET("/sessions", sessionHandler.List)
 		protected.DELETE("/sessions/:id", sessionHandler.Delete)
 		protected.POST("/messages/:id/deliver", messageHandler.Deliver)
+		protected.POST("/messages/:id/fail", messageHandler.Fail)
 		protected.GET("/mock/config", mockHandler.Get)
 		protected.PUT("/mock/config", mockHandler.Update)
 	}

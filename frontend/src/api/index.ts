@@ -88,7 +88,8 @@ export const messageApi = {
     page_size?: number
   }) => api.get<{ data: Message[], total: number, page: number, page_size: number }>('/messages', { params }),
   get: (id: string) => api.get<Message>(`/messages/${id}`),
-  deliver: (id: string) => api.post(`/messages/${id}/deliver`)
+  deliver: (id: string) => api.post(`/messages/${id}/deliver`),
+  fail: (id: string) => api.post(`/messages/${id}/fail`)
 }
 
 // Stats API

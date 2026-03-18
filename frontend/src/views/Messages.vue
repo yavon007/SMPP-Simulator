@@ -63,14 +63,14 @@
             <el-button type="primary" link @click="handleDetail(row)">
               详情
             </el-button>
-            <el-button
-              type="success"
-              link
-              v-if="row.status === 'pending'"
-              @click="handleDeliver(row)"
-            >
-              送达
-            </el-button>
+            <template v-if="row.status === 'pending'">
+              <el-button type="success" link @click="handleDeliver(row)">
+                送达
+              </el-button>
+              <el-button type="danger" link @click="handleFail(row)">
+                失败
+              </el-button>
+            </template>
           </template>
         </el-table-column>
       </el-table>
@@ -237,6 +237,16 @@ const handleDeliver = async (row: any) => {
     await messageApi.deliver(row.id)
     ElMessage.success('已标记为送达')
     messageStore.updateMessageStatus(row.id, 'delivered')
+  } catch {
+    ElMessage.error('操作失败')
+  }
+}
+
+const handleFail = async (row: any) => {
+  try {
+    await messageApi.fail(row.id)
+    ElMessage.success('已标记为失败')
+    messageStore.updateMessageStatus(row.id, 'failed')
   } catch {
     ElMessage.error('操作失败')
   }
