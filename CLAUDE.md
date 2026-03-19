@@ -84,7 +84,8 @@ backend/
 │   │   ├── send_message.go     # Admin send message
 │   │   └── websocket.go        # WebSocket hub
 │   ├── middleware/             # HTTP middleware
-│   │   └── auth.go             # JWT authentication
+│   │   ├── auth.go             # JWT authentication
+│   │   └── ratelimit.go        # Rate limiting for login
 │   ├── model/                  # Data models
 │   ├── repository/             # SQLite data access
 │   └── smpp/                   # SMPP protocol implementation
@@ -135,6 +136,8 @@ db_path: "./smpp.db"
 admin_password: "admin123"
 jwt_secret: "your-secret-key"
 jwt_expiry: 24
+cors_origins: "*"
+login_rate_limit: 5
 ```
 
 **2. Environment Variables:**
@@ -148,6 +151,8 @@ jwt_expiry: 24
 | `ADMIN_PASSWORD` | admin123 | Admin login password |
 | `JWT_SECRET` | smpp-simulator-secret-key | JWT signing key |
 | `JWT_EXPIRY` | 24 | Token expiry (hours) |
+| `CORS_ORIGINS` | * | Allowed CORS origins (comma-separated) |
+| `LOGIN_RATE_LIMIT` | 5 | Max login attempts per minute per IP |
 | `CONFIG_PATH` | auto | Custom config file path |
 
 ## API Endpoints
@@ -260,3 +265,20 @@ Default port: 2775
 - Frontend dev server proxies `/api` and `/ws` to backend
 - WebSocket uses heartbeat (30s) to prevent connection timeout
 - Auto delivery report skips if message status was manually changed
+
+## Security Features
+
+- **Login Rate Limiting**: Max 5 attempts per minute per IP by default
+- **CORS Configuration**: Configurable via `CORS_ORIGINS` env var
+- **WebSocket Origin Validation**: Checks origin against allowed list
+- **Secure ID Generation**: Uses `crypto/rand` for session/message IDs
+- **Docker Security**: Container runs as non-root user with health checks
+
+## API Documentation
+
+OpenAPI 3.0 specification available at `docs/openapi.yaml`
+
+View with:
+```bash
+npx redocly preview-docs docs/openapi.yaml
+```
