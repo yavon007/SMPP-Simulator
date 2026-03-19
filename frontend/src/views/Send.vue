@@ -38,8 +38,8 @@
 
             <el-form-item label="编码方式">
               <el-radio-group v-model="form.encoding">
-                <el-radio label="GSM7">GSM7 (ASCII)</el-radio>
-                <el-radio label="UCS2">UCS2 (中文)</el-radio>
+                <el-radio value="GSM7">GSM7 (ASCII)</el-radio>
+                <el-radio value="UCS2">UCS2 (中文)</el-radio>
               </el-radio-group>
               <div class="form-tip">UCS2 支持中文，GSM7 仅支持 ASCII 字符</div>
             </el-form-item>
