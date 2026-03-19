@@ -16,3 +16,7 @@ db_path: "./smpp.db"
 admin_password: "admin123"      # Change this in production!
 jwt_secret: "smpp-simulator-secret-key"  # Change this in production!
 jwt_expiry: 24  # hours
+
+# Security
+cors_origins: "*"              # Comma-separated allowed origins (e.g., "https://example.com,https://app.example.com")
+login_rate_limit: 5            # Max login attempts per minute per IP

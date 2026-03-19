@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -14,6 +15,8 @@ import (
 // RouterConfig holds dependencies for router setup
 type RouterConfig struct {
 	JWTSecret      string
+	CORSOrigins    string
+	LoginRateLimit int
 	AuthHandler    *handler.AuthHandler
 	SessionHandler *handler.SessionHandler
 	MessageHandler *handler.MessageHandler
@@ -29,11 +32,18 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
+	// Parse CORS origins
+	allowOrigins := []string{"*"}
+	if cfg.CORSOrigins != "" && cfg.CORSOrigins != "*" {
+		allowOrigins = strings.Split(cfg.CORSOrigins, ",")
+		for i, origin := range allowOrigins {
+			allowOrigins[i] = strings.TrimSpace(origin)
+		}
+	}
+
 	// CORS middleware
-	// Note: AllowCredentials cannot be true when AllowOrigins is "*"
-	// For production, configure specific origins via environment variable
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
+		AllowOrigins:     allowOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -41,11 +51,14 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 		MaxAge:           12 * time.Hour,
 	}))
 
+	// Create login rate limiter (default 5 attempts per minute)
+	loginLimiter := middleware.NewRateLimiter(cfg.LoginRateLimit, time.Minute)
+
 	// API routes
 	api := router.Group("/api")
 	{
 		// Public routes (no auth required)
-		api.POST("/auth/login", cfg.AuthHandler.Login)
+		api.POST("/auth/login", middleware.RateLimitMiddleware(loginLimiter), cfg.AuthHandler.Login)
 		api.GET("/auth/status", cfg.AuthHandler.Status)
 		api.GET("/stats", cfg.StatsHandler.Get)
 		api.GET("/messages", cfg.MessageHandler.List)

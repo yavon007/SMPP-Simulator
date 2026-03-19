@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
 import router from '@/router'
+import type { Session, Message, Stats, MockConfig, Receiver } from '@/types'
 
 const api = axios.create({
   baseURL: '/api',
@@ -28,46 +29,6 @@ api.interceptors.response.use(
     return Promise.reject(error)
   }
 )
-
-// Types
-export interface Session {
-  id: string
-  system_id: string
-  bind_type: string
-  remote_addr: string
-  connected_at: string
-  status: string
-}
-
-export interface Message {
-  id: string
-  session_id: string
-  message_id: string
-  sequence_num: number
-  source_addr: string
-  dest_addr: string
-  content: string
-  encoding: string
-  status: string
-  created_at: string
-  delivered_at?: string
-}
-
-export interface Stats {
-  active_connections: number
-  total_messages: number
-  pending_messages: number
-  delivered_messages: number
-  failed_messages: number
-}
-
-export interface MockConfig {
-  auto_response: boolean
-  success_rate: number
-  response_delay: number
-  deliver_report: boolean
-  deliver_delay: number
-}
 
 // Session API
 export const sessionApi = {
@@ -115,14 +76,6 @@ export const dataApi = {
   deleteAllMessages: () => api.delete<{ message: string }>('/data/messages'),
   deleteAllSessions: () => api.delete<{ message: string }>('/data/sessions'),
   clearAllData: () => api.delete<{ message: string }>('/data/all')
-}
-
-// Receiver (for sending messages)
-export interface Receiver {
-  id: string
-  system_id: string
-  bind_type: string
-  remote_addr: string
 }
 
 // Send Message API

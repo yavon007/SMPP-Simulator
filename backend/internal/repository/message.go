@@ -33,6 +33,9 @@ func (r *MessageRepository) Save(msg *model.Message) error {
 
 // GetByID gets a message by ID
 func (r *MessageRepository) GetByID(id string) (*model.Message, error) {
+	r.db.mu.RLock()
+	defer r.db.mu.RUnlock()
+
 	msg := &model.Message{}
 	var deliveredAt sql.NullTime
 	err := r.db.db.QueryRow(
@@ -52,6 +55,9 @@ func (r *MessageRepository) GetByID(id string) (*model.Message, error) {
 
 // GetByMessageID gets a message by SMPP message_id
 func (r *MessageRepository) GetByMessageID(messageID string) (*model.Message, error) {
+	r.db.mu.RLock()
+	defer r.db.mu.RUnlock()
+
 	msg := &model.Message{}
 	var deliveredAt sql.NullTime
 	err := r.db.db.QueryRow(
@@ -81,6 +87,9 @@ type MessageFilter struct {
 
 // GetList gets a paginated list of messages with filters
 func (r *MessageRepository) GetList(filter MessageFilter, limit, offset int) ([]model.Message, int, error) {
+	r.db.mu.RLock()
+	defer r.db.mu.RUnlock()
+
 	// Build query with filters
 	where := "WHERE 1=1"
 	args := []interface{}{}
@@ -169,6 +178,9 @@ func (r *MessageRepository) UpdateStatus(id string, status string) error {
 
 // GetStats gets message statistics
 func (r *MessageRepository) GetStats() (*model.Stats, error) {
+	r.db.mu.RLock()
+	defer r.db.mu.RUnlock()
+
 	stats := &model.Stats{}
 
 	err := r.db.db.QueryRow(`SELECT COUNT(*) FROM messages`).Scan(&stats.TotalMessages)

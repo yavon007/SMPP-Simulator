@@ -1,0 +1,738 @@
+openapi: 3.0.3
+info:
+  title: SMPP Simulator API
+  description: |
+    A frontend-backend separated application for testing SMS platform SMPP protocol functionality.
+    Provides a mock SMPP server for development and testing purposes.
+  version: 1.0.0
+  contact:
+    name: SMPP Simulator
+    url: https://github.com/yavon007/SMPP-Simulator
+
+servers:
+  - url: http://localhost:8080
+    description: Development server
+
+tags:
+  - name: Auth
+    description: Authentication endpoints
+  - name: Messages
+    description: Message management
+  - name: Sessions
+    description: SMPP session management
+  - name: Stats
+    description: Statistics
+  - name: Mock
+    description: Mock configuration
+  - name: Data
+    description: Data management
+  - name: Send
+    description: Send messages to sessions
+
+paths:
+  /api/auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Login to get JWT token
+      description: Authenticate with username and password to receive a JWT token
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/status:
+    get:
+      tags:
+        - Auth
+      summary: Check authentication status
+      description: Check if the current token is valid
+      operationId: authStatus
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Authentication status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+
+  /api/stats:
+    get:
+      tags:
+        - Stats
+      summary: Get statistics
+      description: Get message and session statistics
+      operationId: getStats
+      responses:
+        '200':
+          description: Statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stats'
+
+  /api/messages:
+    get:
+      tags:
+        - Messages
+      summary: List messages
+      description: Get a paginated list of messages with optional filters
+      operationId: listMessages
+      parameters:
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [pending, delivered, failed]
+        - name: source_addr
+          in: query
+          description: Filter by sender address (partial match)
+          schema:
+            type: string
+        - name: dest_addr
+          in: query
+          description: Filter by destination address (partial match)
+          schema:
+            type: string
+        - name: start_time
+          in: query
+          description: Filter from datetime (YYYY-MM-DD HH:mm:ss)
+          schema:
+            type: string
+        - name: end_time
+          in: query
+          description: Filter to datetime (YYYY-MM-DD HH:mm:ss)
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          description: Items per page (max 100)
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageListResponse'
+
+  /api/messages/{id}:
+    get:
+      tags:
+        - Messages
+      summary: Get message by ID
+      description: Get detailed information about a specific message
+      operationId: getMessage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Message ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/messages/{id}/deliver:
+    post:
+      tags:
+        - Messages
+      summary: Mark message as delivered
+      description: Manually mark a message as delivered
+      operationId: deliverMessage
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Message ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message marked as delivered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/messages/{id}/fail:
+    post:
+      tags:
+        - Messages
+      summary: Mark message as failed
+      description: Manually mark a message as failed
+      operationId: failMessage
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Message ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message marked as failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/sessions:
+    get:
+      tags:
+        - Sessions
+      summary: List SMPP sessions
+      description: Get a list of all SMPP connections
+      operationId: listSessions
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/sessions/{id}:
+    delete:
+      tags:
+        - Sessions
+      summary: Disconnect a session
+      description: Disconnect an SMPP session
+      operationId: deleteSession
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Session ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session disconnected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/mock/config:
+    get:
+      tags:
+        - Mock
+      summary: Get mock configuration
+      description: Get the current mock configuration
+      operationId: getMockConfig
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Mock configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MockConfig'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      tags:
+        - Mock
+      summary: Update mock configuration
+      description: Update the mock configuration
+      operationId: updateMockConfig
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MockConfig'
+      responses:
+        '200':
+          description: Updated configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MockConfig'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/send/receivers:
+    get:
+      tags:
+        - Send
+      summary: List available receivers
+      description: Get all sessions that can receive messages (receiver or transceiver)
+      operationId: listReceivers
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of receivers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiverListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/send:
+    post:
+      tags:
+        - Send
+      summary: Send message to session
+      description: Send a message (deliver_sm) to a connected session
+      operationId: sendMessage
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '200':
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendMessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/data/messages:
+    delete:
+      tags:
+        - Data
+      summary: Delete all messages
+      description: Delete all messages from the database
+      operationId: deleteAllMessages
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Messages deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/data/sessions:
+    delete:
+      tags:
+        - Data
+      summary: Delete all sessions
+      description: Delete all sessions from the database
+      operationId: deleteAllSessions
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Sessions deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/data/all:
+    delete:
+      tags:
+        - Data
+      summary: Delete all data
+      description: Delete all messages and sessions from the database
+      operationId: deleteAllData
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: All data deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check if the service is healthy
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /ws:
+    get:
+      tags:
+        - WebSocket
+      summary: WebSocket connection
+      description: |
+        WebSocket endpoint for real-time updates.
+
+        **Authentication:** Optional (JWT token via query parameter `?token=<jwt>` or `Authorization` header)
+
+        **Heartbeat:** Client sends `{"type":"ping"}` every 30s, server responds with `{"type":"pong"}`
+
+        **Events:**
+        - `session_connect` - New SMPP connection
+        - `session_disconnect` - Connection closed
+        - `message_received` - New message received
+        - `message_delivered` - Message delivered
+      operationId: websocket
+      parameters:
+        - name: token
+          in: query
+          description: JWT token for authentication
+          schema:
+            type: string
+      responses:
+        '101':
+          description: Switching to WebSocket protocol
+        '401':
+          description: Invalid token
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: admin
+        password:
+          type: string
+          example: admin123
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT token
+
+    StatusResponse:
+      type: object
+      properties:
+        authenticated:
+          type: boolean
+        username:
+          type: string
+
+    Stats:
+      type: object
+      properties:
+        active_connections:
+          type: integer
+          example: 2
+        total_messages:
+          type: integer
+          example: 150
+        pending_messages:
+          type: integer
+          example: 10
+        delivered_messages:
+          type: integer
+          example: 135
+        failed_messages:
+          type: integer
+          example: 5
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Internal message ID
+        session_id:
+          type: string
+          description: SMPP session ID
+        message_id:
+          type: string
+          description: SMPP message ID returned to client
+        sequence_num:
+          type: integer
+          description: PDU sequence number
+        source_addr:
+          type: string
+          description: Sender address
+        dest_addr:
+          type: string
+          description: Destination address
+        content:
+          type: string
+          description: Message content
+        encoding:
+          type: string
+          enum: [ASCII, GSM7, UCS2]
+        status:
+          type: string
+          enum: [pending, delivered, failed]
+        created_at:
+          type: string
+          format: date-time
+        delivered_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    MessageListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Session ID
+        system_id:
+          type: string
+          description: SMPP system ID
+        bind_type:
+          type: string
+          enum: [transmitter, receiver, transceiver]
+        remote_addr:
+          type: string
+          description: Remote IP address
+        connected_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [active, closed]
+
+    SessionListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Session'
+        total:
+          type: integer
+
+    MockConfig:
+      type: object
+      properties:
+        auto_response:
+          type: boolean
+          description: Auto respond to submit_sm
+          default: true
+        success_rate:
+          type: integer
+          description: Success rate (0-100)
+          minimum: 0
+          maximum: 100
+          default: 100
+        response_delay:
+          type: integer
+          description: Response delay in milliseconds
+          default: 0
+        deliver_report:
+          type: boolean
+          description: Auto send delivery report
+          default: false
+        deliver_delay:
+          type: integer
+          description: Delivery report delay in milliseconds
+          default: 1000
+
+    Receiver:
+      type: object
+      properties:
+        id:
+          type: string
+        system_id:
+          type: string
+        bind_type:
+          type: string
+        remote_addr:
+          type: string
+
+    ReceiverListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Receiver'
+
+    SendMessageRequest:
+      type: object
+      required:
+        - session_id
+        - source_addr
+        - dest_addr
+        - content
+      properties:
+        session_id:
+          type: string
+          description: Target session ID
+        source_addr:
+          type: string
+          description: Source address
+          example: "10086"
+        dest_addr:
+          type: string
+          description: Destination address
+          example: "13800138000"
+        content:
+          type: string
+          description: Message content
+        encoding:
+          type: string
+          enum: [GSM7, UCS2]
+          default: GSM7
+
+    SendMessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        session_id:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+
+    SuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string

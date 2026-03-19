@@ -29,6 +29,9 @@ func (r *SessionRepository) Save(session *model.Session) error {
 
 // GetByID gets a session by ID
 func (r *SessionRepository) GetByID(id string) (*model.Session, error) {
+	r.db.mu.RLock()
+	defer r.db.mu.RUnlock()
+
 	session := &model.Session{}
 	err := r.db.db.QueryRow(
 		`SELECT id, system_id, bind_type, remote_addr, connected_at, status FROM sessions WHERE id = ?`,
@@ -42,6 +45,9 @@ func (r *SessionRepository) GetByID(id string) (*model.Session, error) {
 
 // GetAll gets all sessions
 func (r *SessionRepository) GetAll() ([]model.Session, error) {
+	r.db.mu.RLock()
+	defer r.db.mu.RUnlock()
+
 	rows, err := r.db.db.Query(
 		`SELECT id, system_id, bind_type, remote_addr, connected_at, status FROM sessions ORDER BY connected_at DESC`,
 	)

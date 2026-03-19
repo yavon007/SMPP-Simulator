@@ -2,10 +2,12 @@ package smpp
 
 import (
 	"bufio"
+	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
+	"math/big"
 	"net"
 	"sync"
 	"time"
@@ -311,7 +313,25 @@ func (s *Server) handleSubmitSM(session *SessionState, pdu *PDU) []byte {
 
 	// Check success rate
 	if config.SuccessRate < 100 {
-		// Random check would go here, for now just use 100% success
+		// Generate random number 0-99 and check against success rate
+		randomNum, err := rand.Int(rand.Reader, big.NewInt(100))
+		if err != nil {
+			// Fallback to timestamp-based random
+			randomNum = big.NewInt(time.Now().UnixNano() % 100)
+		}
+		if int(randomNum.Int64()) >= config.SuccessRate {
+			// Simulate failure
+			status = StatusESMERROUT
+			log.Printf("SubmitSM failed (success_rate=%d%%, random=%d): msg_id=%s",
+				config.SuccessRate, randomNum.Int64(), messageID)
+
+			// Update message status to failed
+			if s.messageStore != nil {
+				s.messageStore.UpdateStatus(msg.ID, "failed")
+			}
+
+			return EncodeSubmitSMResp(messageID, pdu.SequenceNum, status)
+		}
 	}
 
 	// Send response
@@ -462,7 +482,12 @@ func (s *Server) SendMessage(params *SendMessageParams) error {
 
 // generateMessageID generates a unique message ID
 func generateMessageID() string {
-	return fmt.Sprintf("%d%06d", time.Now().Unix(), time.Now().Nanosecond()/1000)
+	b := make([]byte, 4)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to timestamp if crypto/rand fails
+		return fmt.Sprintf("%d%06d", time.Now().Unix(), time.Now().Nanosecond()/1000)
+	}
+	return fmt.Sprintf("%d%s", time.Now().Unix(), hex.EncodeToString(b))
 }
 
 // decodeUCS2 decodes UCS2 (UTF-16BE) encoded bytes to string

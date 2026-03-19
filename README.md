@@ -91,6 +91,10 @@ db_path: "./smpp.db"       # SQLite 数据库路径
 admin_password: "admin123"           # 管理员密码（生产环境请修改）
 jwt_secret: "your-secret-key"        # JWT 密钥（生产环境请修改）
 jwt_expiry: 24                       # Token 有效期（小时）
+
+# Security
+cors_origins: "*"                    # 允许的 CORS 来源（生产环境请修改）
+login_rate_limit: 5                  # 每分钟最大登录尝试次数
 ```
 
 ### 环境变量
@@ -107,6 +111,8 @@ jwt_expiry: 24                       # Token 有效期（小时）
 | `ADMIN_PASSWORD` | 管理员密码 | admin123 |
 | `JWT_SECRET` | JWT 密钥 | smpp-simulator-secret-key |
 | `JWT_EXPIRY` | Token 有效期(小时) | 24 |
+| `CORS_ORIGINS` | 允许的 CORS 来源（逗号分隔） | * |
+| `LOGIN_RATE_LIMIT` | 每分钟最大登录尝试次数 | 5 |
 | `CONFIG_PATH` | 指定配置文件路径 | 自动查找 |
 
 ### Docker 环境变量示例
@@ -208,6 +214,22 @@ Authorization: Bearer <token>
 |------|------|------|
 | GET | /health | 健康检查端点 |
 
+## API 文档
+
+项目包含完整的 OpenAPI 3.0 规范文档：
+
+- 文件位置：`docs/openapi.yaml`
+- 可使用 [Swagger UI](https://swagger.io/tools/swagger-ui/) 或 [Redoc](https://github.com/Redocly/redoc) 查看
+
+在线查看：
+```bash
+# 使用 Redoc
+npx redocly preview-docs docs/openapi.yaml
+
+# 或使用 Swagger UI
+npx swagger-ui-watcher docs/openapi.yaml
+```
+
 ## 使用说明
 
 1. 配置短信平台连接到 `localhost:2775`
@@ -235,6 +257,38 @@ Authorization: Bearer <token>
 |-------------|------|:--------:|
 | 0 | GSM7/ASCII | ✅ |
 | 8 | UCS2 (UTF-16BE) | ✅ |
+
+## 安全配置
+
+### 生产环境清单
+
+在生产环境中，请务必修改以下配置：
+
+| 配置项 | 风险 | 修改方式 |
+|--------|------|----------|
+| `ADMIN_PASSWORD` | 默认密码 `admin123` | 环境变量或配置文件 |
+| `JWT_SECRET` | 默认密钥可被破解 | 设置为随机强密码 |
+| `CORS_ORIGINS` | 默认 `*` 允许所有来源 | 设置为实际域名 |
+
+### 安全特性
+
+- **登录速率限制**：默认每 IP 每分钟最多 5 次登录尝试，防止暴力破解
+- **WebSocket Origin 验证**：仅允许白名单域名连接
+- **Docker 非 root 运行**：容器以 `smpp` 用户运行，降低安全风险
+- **JWT Token 过期**：默认 24 小时过期
+
+### 配置示例
+
+```yaml
+# docker-compose.yml (生产环境)
+services:
+  backend:
+    environment:
+      - ADMIN_PASSWORD=your-strong-password-here
+      - JWT_SECRET=your-random-jwt-secret-at-least-32-chars
+      - CORS_ORIGINS=https://your-domain.com
+      - LOGIN_RATE_LIMIT=3
+```
 
 ## 生产部署
 

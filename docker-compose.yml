@@ -15,7 +15,30 @@ services:
       - HTTP_HOST=0.0.0.0
       - HTTP_PORT=8080
       - DB_PATH=/app/data/smpp.db
+      # Security: Change these in production
+      # - ADMIN_PASSWORD=your-secure-password
+      # - JWT_SECRET=your-secure-jwt-secret
+      # - CORS_ORIGINS=https://your-domain.com
     restart: unless-stopped
+    # Security: Run with limited privileges
+    security_opt:
+      - no-new-privileges:true
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   frontend:
     build: ./frontend
@@ -23,8 +46,21 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
+    # Security: Run with limited privileges
+    security_opt:
+      - no-new-privileges:true
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
 
 volumes:
   smpp-data:

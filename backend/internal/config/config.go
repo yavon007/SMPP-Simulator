@@ -26,6 +26,10 @@ type Config struct {
 	AdminPassword string `yaml:"admin_password"`
 	JWTSecret     string `yaml:"jwt_secret"`
 	JWTExpiry     int `yaml:"jwt_expiry"` // hours
+
+	// Security
+	CORSOrigins   string `yaml:"cors_origins"`   // Comma-separated allowed origins
+	LoginRateLimit int  `yaml:"login_rate_limit"` // Max login attempts per minute
 }
 
 // DefaultConfig returns default configuration
@@ -40,6 +44,9 @@ func DefaultConfig() *Config {
 		AdminPassword: "admin123",
 		JWTSecret:     "smpp-simulator-secret-key",
 		JWTExpiry:     24,
+
+		CORSOrigins:    "*",
+		LoginRateLimit: 5, // 5 attempts per minute
 	}
 }
 
@@ -113,6 +120,14 @@ func overrideWithEnv(cfg *Config) {
 	if v := os.Getenv("JWT_EXPIRY"); v != "" {
 		if i, err := strconv.Atoi(v); err == nil {
 			cfg.JWTExpiry = i
+		}
+	}
+	if v := os.Getenv("CORS_ORIGINS"); v != "" {
+		cfg.CORSOrigins = v
+	}
+	if v := os.Getenv("LOGIN_RATE_LIMIT"); v != "" {
+		if i, err := strconv.Atoi(v); err == nil {
+			cfg.LoginRateLimit = i
 		}
 	}
 }

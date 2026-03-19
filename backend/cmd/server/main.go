@@ -67,11 +67,13 @@ func main() {
 	mockHandler := handler.NewMockHandler(mockConfigRepo, smppServer)
 	dataHandler := handler.NewDataHandler(messageRepo, sessionRepo)
 	sendMessageHandler := handler.NewSendMessageHandler(smppServer)
-	wsHandler := handler.NewWebSocketHandler(wsHub, cfg.JWTSecret)
+	wsHandler := handler.NewWebSocketHandler(wsHub, cfg.JWTSecret, []string{cfg.CORSOrigins})
 
 	// Setup router
 	router := SetupRouter(&RouterConfig{
 		JWTSecret:      cfg.JWTSecret,
+		CORSOrigins:    cfg.CORSOrigins,
+		LoginRateLimit: cfg.LoginRateLimit,
 		AuthHandler:    authHandler,
 		SessionHandler: sessionHandler,
 		MessageHandler: messageHandler,

@@ -1,6 +1,8 @@
 package smpp
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"net"
 	"sync"
 	"time"
@@ -130,10 +132,10 @@ func generateID() string {
 }
 
 func randomString(n int) string {
-	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, n)
-	for i := range b {
-		b[i] = letters[time.Now().Nanosecond()%len(letters)]
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to time-based if crypto/rand fails (should never happen)
+		return time.Now().Format("150405.000000")
 	}
-	return string(b)
+	return hex.EncodeToString(b)[:n]
 }

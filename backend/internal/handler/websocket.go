@@ -12,10 +12,54 @@ import (
 	"smpp-simulator/pkg/jwt"
 )
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true // Allow all origins for development
-	},
+// WebSocketHandler handles WebSocket connections
+type WebSocketHandler struct {
+	hub         *WebSocketHub
+	jwtSecret   string
+	allowOrigins []string
+}
+
+// NewWebSocketHandler creates a new WebSocket handler
+func NewWebSocketHandler(hub *WebSocketHub, jwtSecret string, allowOrigins []string) *WebSocketHandler {
+	return &WebSocketHandler{
+		hub:          hub,
+		jwtSecret:    jwtSecret,
+		allowOrigins: allowOrigins,
+	}
+}
+
+// getUpgrader returns a websocket upgrader with origin check
+func (h *WebSocketHandler) getUpgrader() websocket.Upgrader {
+	return websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			// If allowOrigins contains "*", allow all
+			for _, origin := range h.allowOrigins {
+				if origin == "*" {
+					return true
+				}
+			}
+			// Check if origin is in allowed list
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				// Allow connections without Origin header (e.g., from same origin)
+				return true
+			}
+			for _, allowed := range h.allowOrigins {
+				if strings.EqualFold(origin, allowed) {
+					return true
+				}
+				// Also allow if origin matches allowed pattern (for development)
+				if strings.HasSuffix(allowed, "*") {
+					prefix := strings.TrimSuffix(allowed, "*")
+					if strings.HasPrefix(origin, prefix) {
+						return true
+					}
+				}
+			}
+			log.Printf("WebSocket connection rejected from origin: %s", origin)
+			return false
+		},
+	}
 }
 
 // WebSocketClient represents a connected WebSocket client
@@ -110,17 +154,6 @@ func (c *WebSocketClient) readPump(h *WebSocketHub) {
 	}
 }
 
-// WebSocketHandler handles WebSocket connections
-type WebSocketHandler struct {
-	hub      *WebSocketHub
-	jwtSecret string
-}
-
-// NewWebSocketHandler creates a new WebSocket handler
-func NewWebSocketHandler(hub *WebSocketHub, jwtSecret string) *WebSocketHandler {
-	return &WebSocketHandler{hub: hub, jwtSecret: jwtSecret}
-}
-
 // Handle handles WebSocket upgrade
 func (h *WebSocketHandler) Handle(c *gin.Context) {
 	// Authenticate via query parameter token (optional)
@@ -145,6 +178,7 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
 	}
 
 	// Proceed with WebSocket upgrade (with or without authentication)
+	upgrader := h.getUpgrader()
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Printf("WebSocket upgrade error: %v", err)

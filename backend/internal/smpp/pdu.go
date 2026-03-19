@@ -38,6 +38,7 @@ const (
 	StatusInvSrcAddr      uint32 = 0x0000000A
 	StatusInvMsgLen       uint32 = 0x00000009
 	StatusInvESMClass     uint32 = 0x00000043
+	StatusESMERROUT       uint32 = 0x00000088 // Generic SMSC error
 	StatusGenericError    uint32 = 0x000000FF
 )
 
