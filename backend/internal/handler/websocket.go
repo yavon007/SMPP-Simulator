@@ -123,7 +123,7 @@ func NewWebSocketHandler(hub *WebSocketHub, jwtSecret string) *WebSocketHandler 
 
 // Handle handles WebSocket upgrade
 func (h *WebSocketHandler) Handle(c *gin.Context) {
-	// Authenticate via query parameter token
+	// Authenticate via query parameter token (optional)
 	token := c.Query("token")
 	if token == "" {
 		// Also check Authorization header
@@ -133,26 +133,29 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
 		}
 	}
 
-	if token == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing authentication token"})
-		return
+	// Validate JWT token if provided
+	var username string
+	if token != "" {
+		claims, err := jwt.ValidateToken(token, h.jwtSecret)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+			return
+		}
+		username = claims.Username
 	}
 
-	// Validate JWT token
-	claims, err := jwt.ValidateToken(token, h.jwtSecret)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
-		return
-	}
-
-	// Token is valid, proceed with WebSocket upgrade
+	// Proceed with WebSocket upgrade (with or without authentication)
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Printf("WebSocket upgrade error: %v", err)
 		return
 	}
 
-	log.Printf("WebSocket client authenticated: %s", claims.Username)
+	if username != "" {
+		log.Printf("WebSocket client authenticated: %s", username)
+	} else {
+		log.Printf("WebSocket client connected (anonymous)")
+	}
 
 	client := &WebSocketClient{
 		conn: conn,
