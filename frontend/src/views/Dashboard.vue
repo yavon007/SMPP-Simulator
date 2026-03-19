@@ -105,8 +105,12 @@ useWebSocketEvents({
     messageStore.addMessage(message)
     statsStore.updateStats({ total_messages: stats.value.total_messages + 1 })
   },
-  onMessageDelivered: () => {
-    statsStore.fetchStats()
+  onMessageDelivered: (messageId: string) => {
+    messageStore.updateMessageStatus(messageId, 'delivered')
+    statsStore.updateStats({
+      pending_messages: Math.max(0, stats.value.pending_messages - 1),
+      delivered_messages: stats.value.delivered_messages + 1
+    })
   },
   onSessionConnect: () => {
     statsStore.updateStats({ active_connections: stats.value.active_connections + 1 })
