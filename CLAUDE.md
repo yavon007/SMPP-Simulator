@@ -79,6 +79,9 @@ backend/
 │   │   ├── auth.go             # Login/status endpoints
 │   │   ├── message.go          # Message CRUD + stats
 │   │   ├── session.go          # Session management
+│   │   ├── mock.go             # Mock configuration
+│   │   ├── data.go             # Data management (clear data)
+│   │   ├── send_message.go     # Admin send message
 │   │   └── websocket.go        # WebSocket hub
 │   ├── middleware/             # HTTP middleware
 │   │   └── auth.go             # JWT authentication
@@ -169,6 +172,17 @@ jwt_expiry: 24
 | POST | /api/messages/:id/fail | Mark message as failed |
 | GET | /api/mock/config | Get mock configuration |
 | PUT | /api/mock/config | Update mock configuration |
+| DELETE | /api/data/messages | Delete all messages |
+| DELETE | /api/data/sessions | Delete all sessions |
+| DELETE | /api/data/all | Delete all messages and sessions |
+| GET | /api/send/receivers | List sessions that can receive messages |
+| POST | /api/send | Send message to a connected session |
+
+### Health Check
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /health | Health check endpoint |
 
 ### Message Filters
 
@@ -181,9 +195,23 @@ Query parameters for `GET /api/messages`:
 - `page` - Page number
 - `page_size` - Items per page (max 100)
 
+### Send Message
+
+Request body for `POST /api/send`:
+```json
+{
+  "session_id": "session-uuid",
+  "source_addr": "10086",
+  "dest_addr": "13800138000",
+  "content": "Message content",
+  "encoding": "GSM7" // or "UCS2"
+}
+```
+
 ### WebSocket
 
 - **Endpoint:** `GET /ws`
+- **Authentication:** Optional (JWT token via query parameter `?token=<jwt>` or `Authorization` header)
 - **Heartbeat:** Client sends `{"type":"ping"}` every 30s, server responds with `{"type":"pong"}`
 
 **Events:**

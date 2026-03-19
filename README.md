@@ -147,18 +147,52 @@ Authorization: Bearer <token>
 | GET | /api/sessions | 连接列表 |
 | DELETE | /api/sessions/:id | 断开连接 |
 | POST | /api/messages/:id/deliver | 触发状态报告 |
+| POST | /api/messages/:id/fail | 标记消息失败 |
 | GET | /api/mock/config | 获取模拟配置 |
 | PUT | /api/mock/config | 更新模拟配置 |
+| DELETE | /api/data/messages | 清空所有消息 |
+| DELETE | /api/data/sessions | 清空所有会话 |
+| DELETE | /api/data/all | 清空所有数据 |
+| GET | /api/send/receivers | 获取可接收消息的会话 |
+| POST | /api/send | 发送消息到会话 |
 
 ### WebSocket
 
 连接地址：`ws://host/ws`
+
+**认证方式（可选）：**
+- Query 参数：`ws://host/ws?token=<jwt>`
+- Header：`Authorization: Bearer <token>`
+
+如果不提供 token，将以匿名方式连接。
 
 事件类型：
 - `session_connect` - 新连接建立
 - `session_disconnect` - 连接断开
 - `message_received` - 收到消息
 - `message_delivered` - 消息已送达
+
+### 发送消息
+
+请求体示例（`POST /api/send`）：
+
+```json
+{
+  "session_id": "session-uuid",
+  "source_addr": "10086",
+  "dest_addr": "13800138000",
+  "content": "消息内容",
+  "encoding": "GSM7"
+}
+```
+
+`encoding` 可选值：`GSM7`（默认）或 `UCS2`
+
+### 健康检查
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /health | 健康检查端点 |
 
 ## 使用说明
 
