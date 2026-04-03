@@ -20,16 +20,29 @@ type Config struct {
 	HTTPPort string `yaml:"http_port"`
 
 	// Database
-	DBPath string `yaml:"db_path"`
+	DBType string `yaml:"db_type"` // sqlite, postgres, mysql
+	DBPath string `yaml:"db_path"` // for sqlite
+	DBHost string `yaml:"db_host"`
+	DBPort int    `yaml:"db_port"`
+	DBName string `yaml:"db_name"`
+	DBUser string `yaml:"db_user"`
+	DBPassword string `yaml:"db_password"`
+
+	// Redis
+	RedisHost     string `yaml:"redis_host"`
+	RedisPort     string `yaml:"redis_port"`
+	RedisPassword string `yaml:"redis_password"`
+	RedisDB       int    `yaml:"redis_db"`
+	RedisEnabled  bool   `yaml:"redis_enabled"`
 
 	// Auth
 	AdminPassword string `yaml:"admin_password"`
 	JWTSecret     string `yaml:"jwt_secret"`
-	JWTExpiry     int `yaml:"jwt_expiry"` // hours
+	JWTExpiry     int    `yaml:"jwt_expiry"` // hours
 
 	// Security
-	CORSOrigins   string `yaml:"cors_origins"`   // Comma-separated allowed origins
-	LoginRateLimit int  `yaml:"login_rate_limit"` // Max login attempts per minute
+	CORSOrigins    string `yaml:"cors_origins"`    // Comma-separated allowed origins
+	LoginRateLimit int    `yaml:"login_rate_limit"` // Max login attempts per minute
 }
 
 // DefaultConfig returns default configuration
@@ -39,7 +52,12 @@ func DefaultConfig() *Config {
 		SMPPPort: "2775",
 		HTTPHost: "0.0.0.0",
 		HTTPPort: "8080",
-		DBPath:   "./smpp.db",
+
+		DBType: "sqlite",
+		DBPath: "./smpp.db",
+		DBPort: 5432, // default for postgres
+
+		RedisEnabled: false,
 
 		AdminPassword: "admin123",
 		JWTSecret:     "smpp-simulator-secret-key",
@@ -108,9 +126,50 @@ func overrideWithEnv(cfg *Config) {
 	if v := os.Getenv("HTTP_PORT"); v != "" {
 		cfg.HTTPPort = v
 	}
+	// Database
+	if v := os.Getenv("DB_TYPE"); v != "" {
+		cfg.DBType = v
+	}
 	if v := os.Getenv("DB_PATH"); v != "" {
 		cfg.DBPath = v
 	}
+	if v := os.Getenv("DB_HOST"); v != "" {
+		cfg.DBHost = v
+	}
+	if v := os.Getenv("DB_PORT"); v != "" {
+		if i, err := strconv.Atoi(v); err == nil {
+			cfg.DBPort = i
+		}
+	}
+	if v := os.Getenv("DB_NAME"); v != "" {
+		cfg.DBName = v
+	}
+	if v := os.Getenv("DB_USER"); v != "" {
+		cfg.DBUser = v
+	}
+	if v := os.Getenv("DB_PASSWORD"); v != "" {
+		cfg.DBPassword = v
+	}
+	// Redis
+	if v := os.Getenv("REDIS_HOST"); v != "" {
+		cfg.RedisHost = v
+		cfg.RedisEnabled = true
+	}
+	if v := os.Getenv("REDIS_PORT"); v != "" {
+		cfg.RedisPort = v
+	}
+	if v := os.Getenv("REDIS_PASSWORD"); v != "" {
+		cfg.RedisPassword = v
+	}
+	if v := os.Getenv("REDIS_DB"); v != "" {
+		if i, err := strconv.Atoi(v); err == nil {
+			cfg.RedisDB = i
+		}
+	}
+	if v := os.Getenv("REDIS_ENABLED"); v != "" {
+		cfg.RedisEnabled = v == "true" || v == "1"
+	}
+	// Auth
 	if v := os.Getenv("ADMIN_PASSWORD"); v != "" {
 		cfg.AdminPassword = v
 	}

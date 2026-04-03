@@ -317,6 +317,7 @@ func (s *Server) handleSubmitSM(session *SessionState, pdu *PDU) []byte {
 		randomNum, err := rand.Int(rand.Reader, big.NewInt(100))
 		if err != nil {
 			// Fallback to timestamp-based random
+			log.Printf("WARNING: crypto/rand failed: %v, falling back to timestamp-based random", err)
 			randomNum = big.NewInt(time.Now().UnixNano() % 100)
 		}
 		if int(randomNum.Int64()) >= config.SuccessRate {

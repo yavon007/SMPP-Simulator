@@ -3,20 +3,23 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 # Copy package files
-COPY package.json package-lock.json* ./
+COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies
-RUN npm install
+RUN pnpm install --frozen-lockfile
 
 # Copy source code
 COPY . .
 
 # Build
-RUN npm run build
+RUN pnpm build
 
 # Runtime stage
-FROM nginx:alpine
+FROM nginx:1.25-alpine
 
 # Copy built files
 COPY --from=builder /app/dist /usr/share/nginx/html

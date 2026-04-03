@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ type RateLimiter struct {
 	mu       sync.RWMutex
 	rate     int           // max requests
 	window   time.Duration // time window
+	done     chan struct{} // channel to signal goroutine stop
 }
 
 type visitor struct {
@@ -27,6 +29,7 @@ func NewRateLimiter(rate int, window time.Duration) *RateLimiter {
 		visitors: make(map[string]*visitor),
 		rate:     rate,
 		window:   window,
+		done:     make(chan struct{}),
 	}
 	// Cleanup expired entries periodically
 	go rl.cleanup()
@@ -59,15 +62,38 @@ func (rl *RateLimiter) Allow(ip string) bool {
 // cleanup removes expired entries periodically
 func (rl *RateLimiter) cleanup() {
 	ticker := time.NewTicker(time.Minute)
-	for range ticker.C {
-		rl.mu.Lock()
-		now := time.Now()
-		for ip, v := range rl.visitors {
-			if now.After(v.expiresAt) {
-				delete(rl.visitors, ip)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-rl.done:
+			// Stop signal received
+			return
+		case <-ticker.C:
+			rl.mu.Lock()
+			now := time.Now()
+			for ip, v := range rl.visitors {
+				if now.After(v.expiresAt) {
+					delete(rl.visitors, ip)
+				}
 			}
+			rl.mu.Unlock()
 		}
-		rl.mu.Unlock()
+	}
+}
+
+// Stop stops the cleanup goroutine
+func (rl *RateLimiter) Stop() {
+	close(rl.done)
+}
+
+// StopWithContext stops the cleanup goroutine using context
+func (rl *RateLimiter) StopWithContext(ctx context.Context) {
+	select {
+	case <-rl.done:
+		// Already closed
+	default:
+		close(rl.done)
 	}
 }
 

@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import router from '@/router'
 import type { Session, Message, Stats, MockConfig, Receiver } from '@/types'
@@ -17,15 +18,34 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Response interceptor - handle 401 errors
+// Response interceptor - handle errors globally
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status
+    const message = error.response?.data?.error || error.message || 'Unknown error'
+
+    if (status === 401) {
       const authStore = useAuthStore()
       authStore.logout()
       router.push('/login')
+      ElMessage.error('登录已过期，请重新登录')
+    } else if (status === 403) {
+      ElMessage.error('没有权限执行此操作')
+    } else if (status === 404) {
+      ElMessage.error('请求的资源不存在')
+    } else if (status === 429) {
+      ElMessage.error('请求过于频繁，请稍后再试')
+    } else if (status >= 500) {
+      ElMessage.error('服务器错误，请稍后再试')
+    } else if (error.code === 'ECONNABORTED') {
+      ElMessage.error('请求超时，请检查网络连接')
+    } else if (!status) {
+      ElMessage.error('网络连接失败，请检查网络')
+    } else {
+      ElMessage.error(message)
     }
+
     return Promise.reject(error)
   }
 )

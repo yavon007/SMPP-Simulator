@@ -25,11 +25,21 @@ func main() {
 	cfg.CheckSecurityWarnings()
 
 	// Initialize database
-	db, err := repository.NewDatabase(cfg.DBPath)
+	dbCfg := &repository.DatabaseConfig{
+		Type:     cfg.DBType,
+		Path:     cfg.DBPath,
+		Host:     cfg.DBHost,
+		Port:     cfg.DBPort,
+		User:     cfg.DBUser,
+		Password: cfg.DBPassword,
+		Name:     cfg.DBName,
+	}
+	db, err := repository.NewDatabase(dbCfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer db.Close()
+	log.Printf("Database connected: %s", cfg.DBType)
 
 	// Initialize repositories
 	sessionRepo := repository.NewSessionRepository(db)
@@ -87,8 +97,11 @@ func main() {
 	// Start HTTP server
 	httpAddr := fmt.Sprintf("%s:%s", cfg.HTTPHost, cfg.HTTPPort)
 	httpServer := &http.Server{
-		Addr:    httpAddr,
-		Handler: router,
+		Addr:         httpAddr,
+		Handler:      router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	go func() {
@@ -112,6 +125,9 @@ func main() {
 	// Graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
+	// Shutdown WebSocket hub
+	wsHub.Shutdown()
 
 	if err := httpServer.Shutdown(ctx); err != nil {
 		log.Printf("HTTP server shutdown error: %v", err)

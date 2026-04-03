@@ -9,8 +9,33 @@ smpp_port: "2775"
 http_host: "0.0.0.0"
 http_port: "8080"
 
-# Database
+# Database settings
+# Supported types: sqlite, postgres, mysql
+db_type: "sqlite"  # sqlite, postgres, or mysql
+
+# SQLite configuration (used when db_type is sqlite)
 db_path: "./smpp.db"
+
+# PostgreSQL configuration (used when db_type is postgres)
+# db_host: "localhost"
+# db_port: 5432
+# db_user: "smpp"
+# db_password: "your-password"
+# db_name: "smpp_simulator"
+
+# MySQL configuration (used when db_type is mysql)
+# db_host: "localhost"
+# db_port: 3306
+# db_user: "smpp"
+# db_password: "your-password"
+# db_name: "smpp_simulator"
+
+# Redis configuration (optional, for distributed rate limiting and session caching)
+redis_enabled: false
+redis_host: "localhost"
+redis_port: 6379
+redis_password: ""
+redis_db: 0
 
 # Authentication
 admin_password: "admin123"      # Change this in production!

@@ -13,7 +13,10 @@ var testDB *Database
 func TestMain(m *testing.M) {
 	// Setup
 	var err error
-	testDB, err = NewDatabase(":memory:")
+	testDB, err = NewDatabase(&DatabaseConfig{
+		Type: "sqlite",
+		Path: ":memory:",
+	})
 	if err != nil {
 		panic(err)
 	}
