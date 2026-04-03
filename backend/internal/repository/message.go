@@ -111,12 +111,20 @@ func (r *MessageRepository) GetList(filter MessageFilter, limit, offset int) ([]
 		args = append(args, "%"+filter.DestAddr+"%")
 	}
 	if filter.StartTime != "" {
-		where += " AND created_at >= ?"
-		args = append(args, filter.StartTime)
+		// 解析前端传来的时间（本地时间格式）并转换为 RFC3339 格式
+		startTime, err := time.ParseInLocation("2006-01-02 15:04:05", filter.StartTime, time.Local)
+		if err == nil {
+			where += " AND created_at >= ?"
+			args = append(args, startTime.Format(time.RFC3339))
+		}
 	}
 	if filter.EndTime != "" {
-		where += " AND created_at <= ?"
-		args = append(args, filter.EndTime)
+		// 解析前端传来的时间（本地时间格式）并转换为 RFC3339 格式
+		endTime, err := time.ParseInLocation("2006-01-02 15:04:05", filter.EndTime, time.Local)
+		if err == nil {
+			where += " AND created_at <= ?"
+			args = append(args, endTime.Format(time.RFC3339))
+		}
 	}
 
 	// Get total count
