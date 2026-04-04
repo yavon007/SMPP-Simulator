@@ -52,6 +52,22 @@ export interface Stats {
   failed_messages: number
 }
 
+// SessionStats interface (for session detail)
+export interface SessionStats {
+  total: number
+  delivered: number
+  failed: number
+  pending: number
+  success_rate: number
+}
+
+// SessionDetail interface
+export interface SessionDetail {
+  session: Session
+  stats: SessionStats
+  recent_messages: Message[]
+}
+
 // MockConfig interface
 export interface MockConfig {
   auto_response: boolean

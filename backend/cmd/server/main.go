@@ -71,7 +71,7 @@ func main() {
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(cfg.AdminPassword, cfg.JWTSecret, cfg.JWTExpiry)
-	sessionHandler := handler.NewSessionHandler(smppServer)
+	sessionHandler := handler.NewSessionHandler(smppServer, messageRepo)
 	messageHandler := handler.NewMessageHandler(messageRepo)
 	statsHandler := handler.NewStatsHandler(messageRepo, smppServer)
 	mockHandler := handler.NewMockHandler(mockConfigRepo, smppServer)

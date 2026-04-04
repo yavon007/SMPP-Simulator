@@ -37,13 +37,49 @@
         <el-form-item>
           <el-button type="primary" @click="handleFilter">查询</el-button>
           <el-button @click="handleReset">重置</el-button>
+          <el-dropdown @command="handleExport" style="margin-left: 12px">
+            <el-button type="success">
+              导出 <el-icon class="el-icon--right"><arrow-down /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="csv">导出 CSV</el-dropdown-item>
+                <el-dropdown-item command="json">导出 JSON</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </el-form-item>
       </el-form>
     </el-card>
 
     <!-- Messages Table -->
     <el-card>
-      <el-table :data="messages" v-loading="loading" stripe @row-click="handleRowClick">
+      <template #header>
+        <div class="card-header">
+          <span>消息列表</span>
+          <div class="header-actions">
+            <span v-if="selectedIds.length > 0" class="selected-count">
+              已选 {{ selectedIds.length }} 条
+            </span>
+            <el-button
+              type="danger"
+              :disabled="selectedIds.length === 0"
+              @click="handleBatchDelete"
+            >
+              批量删除
+            </el-button>
+          </div>
+        </div>
+      </template>
+      <el-table
+        ref="tableRef"
+        :data="messages"
+        v-loading="loading"
+        stripe
+        @row-click="handleRowClick"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="message_id" label="消息ID" width="180" />
         <el-table-column prop="source_addr" label="发送方" width="120" />
         <el-table-column prop="dest_addr" label="接收方" width="120" />
@@ -146,8 +182,9 @@
 
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { DocumentCopy } from '@element-plus/icons-vue'
+import type { ElTable } from 'element-plus'
 import { useMessageStore } from '@/stores'
 import { messageApi } from '@/api'
 import { useWebSocketEvents } from '@/composables/useWebSocketEvents'
@@ -156,6 +193,9 @@ import { getStatusType, getStatusText } from '@/utils/message'
 import type { Message } from '@/types'
 
 const messageStore = useMessageStore()
+
+const tableRef = ref<InstanceType<typeof ElTable>>()
+const selectedIds = ref<string[]>([])
 
 const messages = computed(() => messageStore.messages)
 const total = computed(() => messageStore.total)
@@ -278,6 +318,36 @@ const handleFail = async (row: Message) => {
     messageStore.updateMessageStatus(row.id, 'failed')
   } catch {
     ElMessage.error('操作失败')
+  }
+}
+
+const handleSelectionChange = (selection: Message[]) => {
+  selectedIds.value = selection.map(msg => msg.id)
+}
+
+const handleBatchDelete = async () => {
+  if (selectedIds.value.length === 0) return
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedIds.value.length} 条消息吗？`,
+      '批量删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    await messageApi.batchDelete(selectedIds.value)
+    ElMessage.success(`成功删除 ${selectedIds.value.length} 条消息`)
+    
+    // Clear selection and refresh list
+    selectedIds.value = []
+    tableRef.value?.clearSelection()
+    messageStore.fetchMessages({ ...getFilterParams(), page: page.value })
+  } catch {
+    // User cancelled or API error
   }
 }
 

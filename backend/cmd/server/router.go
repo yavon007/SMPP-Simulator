@@ -62,6 +62,7 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 		api.GET("/auth/status", cfg.AuthHandler.Status)
 		api.GET("/stats", cfg.StatsHandler.Get)
 		api.GET("/messages", cfg.MessageHandler.List)
+		api.GET("/messages/export", cfg.MessageHandler.Export)
 		api.GET("/messages/:id", cfg.MessageHandler.Get)
 	}
 
@@ -70,6 +71,7 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 	protected.Use(middleware.AuthMiddleware(cfg.JWTSecret))
 	{
 		protected.GET("/sessions", cfg.SessionHandler.List)
+		protected.GET("/sessions/:id/stats", cfg.SessionHandler.GetStats)
 		protected.DELETE("/sessions/:id", cfg.SessionHandler.Delete)
 		protected.DELETE("/messages/batch", cfg.MessageHandler.BatchDelete)
 		protected.POST("/messages/:id/deliver", cfg.MessageHandler.Deliver)

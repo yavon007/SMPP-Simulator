@@ -2,7 +2,7 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import router from '@/router'
-import type { Session, Message, Stats, MockConfig, Receiver } from '@/types'
+import type { Session, Message, Stats, MockConfig, Receiver, SessionDetail } from '@/types'
 
 const api = axios.create({
   baseURL: '/api',
@@ -53,6 +53,7 @@ api.interceptors.response.use(
 // Session API
 export const sessionApi = {
   list: () => api.get<{ data: Session[], total: number }>('/sessions'),
+  getStats: (id: string) => api.get<SessionDetail>(`/sessions/${id}/stats`),
   delete: (id: string) => api.delete(`/sessions/${id}`)
 }
 
@@ -71,7 +72,16 @@ export const messageApi = {
   get: (id: string) => api.get<Message>(`/messages/${id}`),
   deliver: (id: string) => api.post(`/messages/${id}/deliver`),
   fail: (id: string) => api.post(`/messages/${id}/fail`),
-  batchDelete: (ids: string[]) => api.delete<{ message: string; deleted_count: number }>('/messages/batch', { data: { ids } })
+  batchDelete: (ids: string[]) => api.delete<{ message: string; deleted_count: number }>('/messages/batch', { data: { ids } }),
+  export: (params: {
+    session_id?: string
+    status?: string
+    source_addr?: string
+    dest_addr?: string
+    start_time?: string
+    end_time?: string
+    format?: 'csv' | 'json'
+  }) => api.get('/messages/export', { params, responseType: 'blob' })
 }
 
 // Stats API

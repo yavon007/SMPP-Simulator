@@ -144,7 +144,7 @@ func (h *MessageHandler) Export(c *gin.Context) {
 }
 
 // exportCSV exports messages as CSV format
-func (h *MessageHandler) exportCSV(c *gin.Context, messages []repository.MessageWithDetails) {
+func (h *MessageHandler) exportCSV(c *gin.Context, messages []model.Message) {
 	// Set response headers for file download
 	filename := fmt.Sprintf("messages_%s.csv", time.Now().Format("20060102_150405"))
 	c.Header("Content-Type", "text/csv; charset=utf-8")
@@ -182,7 +182,7 @@ func (h *MessageHandler) exportCSV(c *gin.Context, messages []repository.Message
 }
 
 // exportJSON exports messages as JSON format
-func (h *MessageHandler) exportJSON(c *gin.Context, messages []repository.MessageWithDetails) {
+func (h *MessageHandler) exportJSON(c *gin.Context, messages []model.Message) {
 	// Set response headers for file download
 	filename := fmt.Sprintf("messages_%s.json", time.Now().Format("20060102_150405"))
 	c.Header("Content-Type", "application/json; charset=utf-8")
