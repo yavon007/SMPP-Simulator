@@ -9,7 +9,29 @@ SMPP 短信模拟器，为短信平台提供 SMPP 协议功能测试环境。
 - WebSocket 实时推送
 - 用户认证与权限控制
 - 可配置的模拟行为
-- Docker 部署支持
+ - Docker 部署支持
+- **移动端适配** - 响应式设计，支持手机访问
+- **深色模式** - 支持亮色/暗色主题切换
+- **国际化** - 支持中英文切换
+- **消息搜索** - 支持内容、状态、时间范围搜索
+- **消息导出** - 支持 CSV/JSON 格式导出
+- **批量操作** - 支持批量删除消息
+- **消息模板** - 预定义常用消息模板
+- **连接统计** - 查看连接的消息统计
+- **API 限流可视化** - 显示剩余登录次数
+- **移动端适配** - 响应式设计，支持手机访问
+- **深色模式** - 支持亮色/暗色主题切换
+- **国际化** - 支持中英文切换
+- **消息搜索** - 支持内容模糊搜索
+- **消息导出** - 支持 CSV/JSON 格式导出
+- **批量操作** - 支持批量删除消息
+- **消息模板** - 预定义常用消息模板
+- **连接统计** - 查看连接消息统计
+- **API 限流可视化** - 显示剩余登录次数
+- **移动端适配** - 响应式设计，支持手机访问
+- **深色模式** - 支持亮色/深色主题切换
+- **国际化** - 支持中英文切换
+- **消息模板** - 预定义常用消息模板
 
 ## 界面预览
 
@@ -165,7 +187,9 @@ Authorization: Bearer <token>
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | /api/sessions | 连接列表 |
+| GET | /api/sessions/:id/stats | 连接消息统计 |
 | DELETE | /api/sessions/:id | 断开连接 |
+| DELETE | /api/messages/batch | 批量删除消息 |
 | POST | /api/messages/:id/deliver | 触发状态报告 |
 | POST | /api/messages/:id/fail | 标记消息失败 |
 | GET | /api/mock/config | 获取模拟配置 |
@@ -175,6 +199,13 @@ Authorization: Bearer <token>
 | DELETE | /api/data/all | 清空所有数据 |
 | GET | /api/send/receivers | 获取可接收消息的会话 |
 | POST | /api/send | 发送消息到会话 |
+| GET | /api/templates | 获取消息模板列表 |
+| POST | /api/templates | 创建消息模板 |
+| PUT | /api/templates/:id | 更新消息模板 |
+| DELETE | /api/templates/:id | 删除消息模板 |
+| GET | /api/system/config | 获取系统配置 |
+| PUT | /api/system/config | 更新系统配置 |
+| GET | /api/stats/rate-limit | 获取限流状态 |
 
 ### WebSocket
 
