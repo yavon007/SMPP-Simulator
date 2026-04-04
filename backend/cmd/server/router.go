@@ -71,6 +71,7 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 	{
 		protected.GET("/sessions", cfg.SessionHandler.List)
 		protected.DELETE("/sessions/:id", cfg.SessionHandler.Delete)
+		protected.DELETE("/messages/batch", cfg.MessageHandler.BatchDelete)
 		protected.POST("/messages/:id/deliver", cfg.MessageHandler.Deliver)
 		protected.POST("/messages/:id/fail", cfg.MessageHandler.Fail)
 		protected.GET("/mock/config", cfg.MockHandler.Get)

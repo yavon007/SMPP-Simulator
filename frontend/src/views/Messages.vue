@@ -43,7 +43,7 @@
 
     <!-- Messages Table -->
     <el-card>
-      <el-table :data="messages" v-loading="loading" stripe>
+      <el-table :data="messages" v-loading="loading" stripe @row-click="handleRowClick">
         <el-table-column prop="message_id" label="消息ID" width="180" />
         <el-table-column prop="source_addr" label="发送方" width="120" />
         <el-table-column prop="dest_addr" label="接收方" width="120" />
@@ -93,24 +93,53 @@
     </el-card>
 
     <!-- Detail Dialog -->
-    <el-dialog v-model="detailVisible" title="消息详情" width="600px">
-      <el-descriptions :column="2" border v-if="currentMessage">
-        <el-descriptions-item label="消息ID">{{ currentMessage.message_id }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="getStatusType(currentMessage.status)">
+    <el-dialog v-model="detailVisible" title="消息详情" width="650px" destroy-on-close>
+      <div v-if="currentMessage" class="detail-content">
+        <!-- 消息ID（可复制） -->
+        <div class="detail-row">
+          <span class="detail-label">消息ID</span>
+          <div class="detail-value copyable" @click="copyToClipboard(currentMessage.message_id)">
+            <span>{{ currentMessage.message_id }}</span>
+            <el-icon class="copy-icon"><DocumentCopy /></el-icon>
+          </div>
+        </div>
+
+        <!-- 发送方/接收方 -->
+        <div class="detail-row">
+          <span class="detail-label">发送方</span>
+          <span class="detail-value">{{ currentMessage.source_addr }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">接收方</span>
+          <span class="detail-value">{{ currentMessage.dest_addr }}</span>
+        </div>
+
+        <!-- 编码方式 -->
+        <div class="detail-row">
+          <span class="detail-label">编码方式</span>
+          <span class="detail-value">{{ currentMessage.encoding }}</span>
+        </div>
+
+        <!-- 状态标签 -->
+        <div class="detail-row">
+          <span class="detail-label">状态</span>
+          <el-tag :type="getStatusType(currentMessage.status)" size="large">
             {{ getStatusText(currentMessage.status) }}
           </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="发送方">{{ currentMessage.source_addr }}</el-descriptions-item>
-        <el-descriptions-item label="接收方">{{ currentMessage.dest_addr }}</el-descriptions-item>
-        <el-descriptions-item label="编码">{{ currentMessage.encoding }}</el-descriptions-item>
-        <el-descriptions-item label="序列号">{{ currentMessage.sequence_num }}</el-descriptions-item>
-        <el-descriptions-item label="会话ID">{{ currentMessage.session_id }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ formatTime(currentMessage.created_at) }}</el-descriptions-item>
-        <el-descriptions-item label="内容" :span="2">
-          <div class="message-content">{{ currentMessage.content }}</div>
-        </el-descriptions-item>
-      </el-descriptions>
+        </div>
+
+        <!-- 创建时间 -->
+        <div class="detail-row">
+          <span class="detail-label">创建时间</span>
+          <span class="detail-value">{{ formatTime(currentMessage.created_at) }}</span>
+        </div>
+
+        <!-- 消息内容（完整显示，支持滚动） -->
+        <div class="detail-row detail-row-content">
+          <span class="detail-label">消息内容</span>
+          <pre class="message-content-pre">{{ currentMessage.content }}</pre>
+        </div>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -118,6 +147,7 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { DocumentCopy } from '@element-plus/icons-vue'
 import { useMessageStore } from '@/stores'
 import { messageApi } from '@/api'
 import { useWebSocketEvents } from '@/composables/useWebSocketEvents'
@@ -218,6 +248,19 @@ const handleDetail = (row: Message) => {
   detailVisible.value = true
 }
 
+const handleRowClick = (row: Message) => {
+  handleDetail(row)
+}
+
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    ElMessage.success('已复制到剪贴板')
+  } catch {
+    ElMessage.error('复制失败')
+  }
+}
+
 const handleDeliver = async (row: Message) => {
   try {
     await messageApi.deliver(row.id)
@@ -279,10 +322,73 @@ onMounted(async () => {
   justify-content: flex-end;
 }
 
-.message-content {
-  max-height: 200px;
-  overflow-y: auto;
+/* Detail Dialog Styles */
+.detail-content {
+  padding: 10px 0;
+}
+
+.detail-row {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.detail-row-content {
+  flex-direction: column;
+}
+
+.detail-label {
+  flex-shrink: 0;
+  width: 80px;
+  font-weight: 500;
+  color: #606266;
+  font-size: 14px;
+}
+
+.detail-value {
+  flex: 1;
+  color: #303133;
+  font-size: 14px;
+  word-break: break-all;
+}
+
+.copyable {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin-left: -8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.copyable:hover {
+  background-color: #f5f7fa;
+}
+
+.copy-icon {
+  color: #909399;
+  font-size: 14px;
+}
+
+.copyable:hover .copy-icon {
+  color: #409eff;
+}
+
+.message-content-pre {
+  flex: 1;
+  margin: 8px 0 0 0;
+  padding: 12px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-all;
+  max-height: 300px;
+  overflow-y: auto;
+  color: #303133;
 }
 </style>

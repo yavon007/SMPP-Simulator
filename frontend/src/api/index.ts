@@ -70,7 +70,8 @@ export const messageApi = {
   }) => api.get<{ data: Message[], total: number, page: number, page_size: number }>('/messages', { params }),
   get: (id: string) => api.get<Message>(`/messages/${id}`),
   deliver: (id: string) => api.post(`/messages/${id}/deliver`),
-  fail: (id: string) => api.post(`/messages/${id}/fail`)
+  fail: (id: string) => api.post(`/messages/${id}/fail`),
+  batchDelete: (ids: string[]) => api.delete<{ message: string; deleted_count: number }>('/messages/batch', { data: { ids } })
 }
 
 // Stats API

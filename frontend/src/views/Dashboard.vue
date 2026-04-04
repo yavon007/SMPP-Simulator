@@ -50,6 +50,90 @@
       </el-col>
     </el-row>
 
+    <!-- Message Status Distribution Chart -->
+    <el-card class="status-chart-card">
+      <template #header>
+        <div class="card-header">
+          <span>消息状态分布</span>
+        </div>
+      </template>
+      <div class="status-chart">
+        <div class="chart-item">
+          <div class="chart-label">
+            <span class="status-dot pending"></span>
+            <span>待处理</span>
+          </div>
+          <el-progress 
+            :percentage="pendingPercent" 
+            :stroke-width="20"
+            :show-text="false"
+            class="progress-bar"
+          />
+          <div class="chart-value">
+            <span class="count">{{ stats.pending_messages }}</span>
+            <span class="percent">{{ pendingPercent.toFixed(1) }}%</span>
+          </div>
+        </div>
+        <div class="chart-item">
+          <div class="chart-label">
+            <span class="status-dot delivered"></span>
+            <span>已送达</span>
+          </div>
+          <el-progress 
+            :percentage="deliveredPercent" 
+            :stroke-width="20"
+            :show-text="false"
+            status="success"
+            class="progress-bar"
+          />
+          <div class="chart-value">
+            <span class="count">{{ stats.delivered_messages }}</span>
+            <span class="percent">{{ deliveredPercent.toFixed(1) }}%</span>
+          </div>
+        </div>
+        <div class="chart-item">
+          <div class="chart-label">
+            <span class="status-dot failed"></span>
+            <span>失败</span>
+          </div>
+          <el-progress 
+            :percentage="failedPercent" 
+            :stroke-width="20"
+            :show-text="false"
+            status="exception"
+            class="progress-bar"
+          />
+          <div class="chart-value">
+            <span class="count">{{ stats.failed_messages }}</span>
+            <span class="percent">{{ failedPercent.toFixed(1) }}%</span>
+          </div>
+        </div>
+      </div>
+      <!-- Visual pie chart using CSS -->
+      <div class="pie-chart-container">
+        <div class="pie-chart" :style="pieChartStyle">
+          <div class="pie-center">
+            <div class="pie-total">{{ stats.total_messages }}</div>
+            <div class="pie-label">消息总数</div>
+          </div>
+        </div>
+        <div class="pie-legend">
+          <div class="legend-item">
+            <span class="legend-color pending"></span>
+            <span>待处理 {{ stats.pending_messages }}</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color delivered"></span>
+            <span>已送达 {{ stats.delivered_messages }}</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color failed"></span>
+            <span>失败 {{ stats.failed_messages }}</span>
+          </div>
+        </div>
+      </div>
+    </el-card>
+
     <!-- Recent Messages -->
     <el-card class="recent-messages">
       <template #header>
@@ -124,6 +208,45 @@ const messageStore = useMessageStore()
 const stats = computed(() => statsStore.stats)
 const recentMessages = computed(() => messageStore.messages.slice(0, 10))
 const loading = computed(() => messageStore.loading)
+
+// Calculate percentages for chart
+const totalProcessed = computed(() => {
+  return stats.value.pending_messages + stats.value.delivered_messages + stats.value.failed_messages
+})
+
+const pendingPercent = computed(() => {
+  if (totalProcessed.value === 0) return 0
+  return (stats.value.pending_messages / totalProcessed.value) * 100
+})
+
+const deliveredPercent = computed(() => {
+  if (totalProcessed.value === 0) return 0
+  return (stats.value.delivered_messages / totalProcessed.value) * 100
+})
+
+const failedPercent = computed(() => {
+  if (totalProcessed.value === 0) return 0
+  return (stats.value.failed_messages / totalProcessed.value) * 100
+})
+
+// Pie chart conic-gradient style
+const pieChartStyle = computed(() => {
+  const pending = pendingPercent.value
+  const delivered = deliveredPercent.value
+  const failed = failedPercent.value
+  
+  if (totalProcessed.value === 0) {
+    return { background: '#E4E7ED' }
+  }
+  
+  return {
+    background: `conic-gradient(
+      #E6A23C 0% ${pending}%,
+      #67C23A ${pending}% ${pending + delivered}%,
+      #F56C6C ${pending + delivered}% 100%
+    )`
+  }
+})
 
 // WebSocket event handlers
 useWebSocketEvents({
@@ -238,6 +361,148 @@ onMounted(async () => {
   align-items: center;
 }
 
+/* Status Chart Styles */
+.status-chart-card {
+  margin-top: 20px;
+}
+
+.status-chart {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.chart-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chart-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #606266;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.status-dot.pending {
+  background-color: #E6A23C;
+}
+
+.status-dot.delivered {
+  background-color: #67C23A;
+}
+
+.status-dot.failed {
+  background-color: #F56C6C;
+}
+
+.progress-bar {
+  width: 100%;
+}
+
+.chart-value {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.chart-value .count {
+  font-size: 20px;
+  font-weight: bold;
+  color: #303133;
+}
+
+.chart-value .percent {
+  font-size: 13px;
+  color: #909399;
+}
+
+/* Pie Chart Styles */
+.pie-chart-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  padding: 20px 0;
+}
+
+.pie-chart {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  position: relative;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.pie-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100px;
+  height: 100px;
+  background: #fff;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.pie-total {
+  font-size: 28px;
+  font-weight: bold;
+  color: #303133;
+}
+
+.pie-label {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+}
+
+.pie-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #606266;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+.legend-color.pending {
+  background-color: #E6A23C;
+}
+
+.legend-color.delivered {
+  background-color: #67C23A;
+}
+
+.legend-color.failed {
+  background-color: #F56C6C;
+}
+
 /* 移动端消息列表 */
 .mobile-message-list {
   display: none;
@@ -339,6 +604,42 @@ onMounted(async () => {
 
   .mobile-message-list {
     display: block;
+  }
+
+  /* Chart mobile styles */
+  .status-chart {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .chart-value .count {
+    font-size: 18px;
+  }
+
+  .pie-chart-container {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .pie-chart {
+    width: 140px;
+    height: 140px;
+  }
+
+  .pie-center {
+    width: 80px;
+    height: 80px;
+  }
+
+  .pie-total {
+    font-size: 22px;
+  }
+
+  .pie-legend {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
   }
 }
 </style>

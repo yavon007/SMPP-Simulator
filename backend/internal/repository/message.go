@@ -236,3 +236,101 @@ func (r *MessageRepository) DeleteAllMessages() error {
 	_, err := r.db.db.Exec(`DELETE FROM messages`)
 	return err
 }
+
+// DeleteByIDs deletes multiple messages by their IDs
+func (r *MessageRepository) DeleteByIDs(ids []string) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+
+	r.db.mu.Lock()
+	defer r.db.mu.Unlock()
+
+	// Build query with placeholders
+	query := "DELETE FROM messages WHERE id IN ("
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		if i > 0 {
+			query += ","
+		}
+		query += "?"
+		args[i] = id
+	}
+	query += ")"
+
+	result, err := r.db.db.Exec(query, args...)
+	if err != nil {
+		return 0, fmt.Errorf("delete messages by ids: %w", err)
+	}
+
+	return result.RowsAffected()
+}
+
+// SessionStats represents message statistics for a session
+type SessionStats struct {
+	Total     int `json:"total"`
+	Delivered int `json:"delivered"`
+	Failed    int `json:"failed"`
+	Pending   int `json:"pending"`
+}
+
+// GetStatsBySessionID gets message statistics for a specific session
+func (r *MessageRepository) GetStatsBySessionID(sessionID string) (*SessionStats, error) {
+	r.db.mu.RLock()
+	defer r.db.mu.RUnlock()
+
+	stats := &SessionStats{}
+
+	err := r.db.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE session_id = ?`, sessionID).Scan(&stats.Total)
+	if err != nil {
+		return nil, fmt.Errorf("get total count for session %s: %w", sessionID, err)
+	}
+
+	err = r.db.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE session_id = ? AND status = 'delivered'`, sessionID).Scan(&stats.Delivered)
+	if err != nil {
+		return nil, fmt.Errorf("get delivered count for session %s: %w", sessionID, err)
+	}
+
+	err = r.db.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE session_id = ? AND status = 'failed'`, sessionID).Scan(&stats.Failed)
+	if err != nil {
+		return nil, fmt.Errorf("get failed count for session %s: %w", sessionID, err)
+	}
+
+	err = r.db.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE session_id = ? AND status = 'pending'`, sessionID).Scan(&stats.Pending)
+	if err != nil {
+		return nil, fmt.Errorf("get pending count for session %s: %w", sessionID, err)
+	}
+
+	return stats, nil
+}
+
+// GetRecentBySessionID gets recent messages for a specific session
+func (r *MessageRepository) GetRecentBySessionID(sessionID string, limit int) ([]model.Message, error) {
+	r.db.mu.RLock()
+	defer r.db.mu.RUnlock()
+
+	query := `SELECT id, session_id, message_id, sequence_num, source_addr, dest_addr, content, encoding, status, created_at, delivered_at
+		FROM messages WHERE session_id = ? ORDER BY created_at DESC LIMIT ?`
+
+	rows, err := r.db.db.Query(query, sessionID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("get recent messages for session %s: %w", sessionID, err)
+	}
+	defer rows.Close()
+
+	messages := make([]model.Message, 0)
+	for rows.Next() {
+		var msg model.Message
+		var deliveredAt sql.NullTime
+		if err := rows.Scan(&msg.ID, &msg.SessionID, &msg.MessageID, &msg.SequenceNum, &msg.SourceAddr,
+			&msg.DestAddr, &msg.Content, &msg.Encoding, &msg.Status, &msg.CreatedAt, &deliveredAt); err != nil {
+			return nil, fmt.Errorf("scan message row: %w", err)
+		}
+		if deliveredAt.Valid {
+			msg.DeliveredAt = &deliveredAt.Time
+		}
+		messages = append(messages, msg)
+	}
+
+	return messages, nil
+}
