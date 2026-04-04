@@ -22,9 +22,9 @@ func (r *TemplateRepository) Save(template *model.MessageTemplate) error {
 	r.db.mu.Lock()
 	defer r.db.mu.Unlock()
 
-	_, err := r.db.db.Exec(
-		`INSERT INTO message_templates (id, name, content, encoding, created_at)
-		 VALUES (?, ?, ?, ?, ?)`,
+	query := r.db.RebindQuery(`INSERT INTO message_templates (id, name, content, encoding, created_at)
+		 VALUES (?, ?, ?, ?, ?)`)
+	_, err := r.db.db.Exec(query,
 		template.ID, template.Name, template.Content, template.Encoding, template.CreatedAt,
 	)
 	return err
@@ -36,11 +36,10 @@ func (r *TemplateRepository) GetByID(id string) (*model.MessageTemplate, error) 
 	defer r.db.mu.RUnlock()
 
 	template := &model.MessageTemplate{}
-	err := r.db.db.QueryRow(
-		`SELECT id, name, content, encoding, created_at
-		 FROM message_templates WHERE id = ?`,
-		id,
-	).Scan(&template.ID, &template.Name, &template.Content, &template.Encoding, &template.CreatedAt)
+	query := r.db.RebindQuery(`SELECT id, name, content, encoding, created_at
+		 FROM message_templates WHERE id = ?`)
+	err := r.db.db.QueryRow(query, id).Scan(
+		&template.ID, &template.Name, &template.Content, &template.Encoding, &template.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +77,8 @@ func (r *TemplateRepository) Update(template *model.MessageTemplate) error {
 	r.db.mu.Lock()
 	defer r.db.mu.Unlock()
 
-	result, err := r.db.db.Exec(
-		`UPDATE message_templates SET name = ?, content = ?, encoding = ? WHERE id = ?`,
+	query := r.db.RebindQuery(`UPDATE message_templates SET name = ?, content = ?, encoding = ? WHERE id = ?`)
+	result, err := r.db.db.Exec(query,
 		template.Name, template.Content, template.Encoding, template.ID,
 	)
 	if err != nil {
@@ -102,6 +101,7 @@ func (r *TemplateRepository) Delete(id string) error {
 	r.db.mu.Lock()
 	defer r.db.mu.Unlock()
 
-	_, err := r.db.db.Exec(`DELETE FROM message_templates WHERE id = ?`, id)
+	query := r.db.RebindQuery(`DELETE FROM message_templates WHERE id = ?`)
+	_, err := r.db.db.Exec(query, id)
 	return err
 }

@@ -31,8 +31,8 @@ func (r *MockConfigRepository) Save(config *model.MockConfig) error {
 	r.db.mu.Lock()
 	defer r.db.mu.Unlock()
 
-	_, err := r.db.db.Exec(
-		`UPDATE mock_config SET auto_response = ?, success_rate = ?, response_delay = ?, deliver_report = ?, deliver_delay = ? WHERE id = 1`,
+	query := r.db.RebindQuery(`UPDATE mock_config SET auto_response = ?, success_rate = ?, response_delay = ?, deliver_report = ?, deliver_delay = ? WHERE id = 1`)
+	_, err := r.db.db.Exec(query,
 		config.AutoResponse, config.SuccessRate, config.ResponseDelay, config.DeliverReport, config.DeliverDelay,
 	)
 	return err
