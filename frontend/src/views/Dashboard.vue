@@ -4,7 +4,7 @@
 
     <!-- Stats Cards -->
     <el-row :gutter="20" class="stats-row">
-      <el-col :span="6">
+      <el-col :xs="12" :sm="6">
         <el-card class="stat-card">
           <div class="stat-icon connections">
             <el-icon><Connection /></el-icon>
@@ -15,7 +15,7 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="12" :sm="6">
         <el-card class="stat-card">
           <div class="stat-icon messages">
             <el-icon><Message /></el-icon>
@@ -26,7 +26,7 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="12" :sm="6">
         <el-card class="stat-card">
           <div class="stat-icon pending">
             <el-icon><Clock /></el-icon>
@@ -37,7 +37,7 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="12" :sm="6">
         <el-card class="stat-card">
           <div class="stat-icon delivered">
             <el-icon><CircleCheck /></el-icon>
@@ -60,14 +60,16 @@
           </el-button>
         </div>
       </template>
-      <el-table :data="recentMessages" v-loading="loading" stripe>
+      
+      <!-- 桌面端表格 -->
+      <el-table :data="recentMessages" v-loading="loading" stripe class="desktop-table">
         <el-table-column prop="message_id" label="消息ID" width="180" />
         <el-table-column prop="source_addr" label="发送方" width="120" />
         <el-table-column prop="dest_addr" label="接收方" width="120" />
         <el-table-column prop="content" label="内容" show-overflow-tooltip />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">
+            <el-tag :type="getStatusType(row.status)" size="small">
               {{ getStatusText(row.status) }}
             </el-tag>
           </template>
@@ -78,13 +80,37 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- 移动端卡片列表 -->
+      <div class="mobile-message-list" v-loading="loading">
+        <div class="message-item" v-for="msg in recentMessages" :key="msg.id">
+          <div class="message-header">
+            <span class="message-id">{{ msg.message_id }}</span>
+            <el-tag :type="getStatusType(msg.status)" size="small">
+              {{ getStatusText(msg.status) }}
+            </el-tag>
+          </div>
+          <div class="message-body">
+            <div class="message-route">
+              <span class="from">{{ msg.source_addr }}</span>
+              <el-icon><Right /></el-icon>
+              <span class="to">{{ msg.dest_addr }}</span>
+            </div>
+            <div class="message-content">{{ msg.content }}</div>
+          </div>
+          <div class="message-footer">
+            {{ formatTime(msg.created_at) }}
+          </div>
+        </div>
+        <el-empty v-if="!loading && recentMessages.length === 0" description="暂无消息" />
+      </div>
     </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, computed } from 'vue'
-import { Connection, Message, Clock, CircleCheck } from '@element-plus/icons-vue'
+import { Connection, Message, Clock, CircleCheck, Right } from '@element-plus/icons-vue'
 import { useStatsStore, useMessageStore } from '@/stores'
 import { wsClient } from '@/utils/websocket'
 import { useWebSocketEvents } from '@/composables/useWebSocketEvents'
@@ -126,7 +152,6 @@ onMounted(async () => {
     messageStore.fetchMessages({ page_size: 10 })
   ])
 
-  // Connect WebSocket
   wsClient.connect()
 })
 </script>
@@ -155,18 +180,20 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   width: 100%;
+  padding: 16px;
 }
 
 .stat-icon {
-  width: 60px;
-  height: 60px;
+  width: 50px;
+  height: 50px;
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  font-size: 24px;
   color: #fff;
-  margin-right: 16px;
+  margin-right: 12px;
+  flex-shrink: 0;
 }
 
 .stat-icon.connections {
@@ -187,16 +214,17 @@ onMounted(async () => {
 
 .stat-content {
   flex: 1;
+  min-width: 0;
 }
 
 .stat-value {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: bold;
   color: #303133;
 }
 
 .stat-label {
-  font-size: 14px;
+  font-size: 13px;
   color: #909399;
 }
 
@@ -208,5 +236,109 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+/* 移动端消息列表 */
+.mobile-message-list {
+  display: none;
+}
+
+.message-item {
+  padding: 12px 0;
+  border-bottom: 1px solid #EBEEF5;
+}
+
+.message-item:last-child {
+  border-bottom: none;
+}
+
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.message-id {
+  font-size: 13px;
+  color: #606266;
+  font-family: monospace;
+}
+
+.message-body {
+  margin-bottom: 8px;
+}
+
+.message-route {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.message-route .from {
+  color: #409EFF;
+}
+
+.message-route .to {
+  color: #67C23A;
+}
+
+.message-route .el-icon {
+  color: #909399;
+  font-size: 12px;
+}
+
+.message-content {
+  font-size: 14px;
+  color: #303133;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message-footer {
+  font-size: 12px;
+  color: #909399;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .page-title {
+    font-size: 18px;
+    margin-bottom: 16px;
+  }
+
+  .stats-row {
+    margin-bottom: 16px;
+  }
+
+  .stat-card :deep(.el-card__body) {
+    padding: 12px;
+  }
+
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    margin-right: 10px;
+  }
+
+  .stat-value {
+    font-size: 20px;
+  }
+
+  .stat-label {
+    font-size: 12px;
+  }
+
+  .desktop-table {
+    display: none;
+  }
+
+  .mobile-message-list {
+    display: block;
+  }
 }
 </style>
