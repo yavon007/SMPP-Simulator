@@ -226,7 +226,7 @@ func (d *Database) RebindQuery(query string) string {
 	if d.dbType != "postgres" && d.dbType != "postgresql" {
 		return query
 	}
-	
+
 	// Replace ? with $1, $2, $3...
 	result := ""
 	index := 1

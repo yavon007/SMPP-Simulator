@@ -252,6 +252,7 @@ func (r *MessageRepository) DeleteByIDs(ids []string) (int64, error) {
 	}
 	query += ")"
 
+	query = r.db.RebindQuery(query)
 	result, err := r.db.db.Exec(query, args...)
 	if err != nil {
 		return 0, fmt.Errorf("delete messages by ids: %w", err)
