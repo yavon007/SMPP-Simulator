@@ -59,9 +59,9 @@ type MessageTemplate struct {
 type OperationLog struct {
 	ID          string    `json:"id"`
 	Operation   string    `json:"operation"`   // login, send_message, config_change, data_clear
-	Content     string    `json:"content"`     // detailed content
+	Detail      string    `json:"detail"`
 	Operator    string    `json:"operator"`
-	IP          string    `json:"ip"`          // IP address
+	IPAddress   string    `json:"ip_address"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 

@@ -24,9 +24,9 @@ func (r *OperationLogRepository) Save(log *model.OperationLog) error {
 	defer r.db.mu.Unlock()
 
 	_, err := r.db.db.Exec(
-		`INSERT INTO operation_logs (operation, content, operator, ip, created_at)
+		`INSERT INTO operation_logs (operation, detail, operator, ip_address, created_at)
 		 VALUES (?, ?, ?, ?, ?)`,
-		log.Operation, log.Content, log.Operator, log.IP, log.CreatedAt,
+		log.Operation, log.Detail, log.Operator, log.IPAddress, log.CreatedAt,
 	)
 	return err
 }
@@ -96,7 +96,7 @@ func (r *OperationLogRepository) GetList(filter OperationLogFilter, limit, offse
 	logs := make([]model.OperationLog, 0)
 	for rows.Next() {
 		var log model.OperationLog
-		if err := rows.Scan(&log.ID, &log.Operation, &log.Content, &log.Operator, &log.IP, &log.CreatedAt); err != nil {
+		if err := rows.Scan(&log.ID, &log.Operation, &log.Detail, &log.Operator, &log.IPAddress, &log.CreatedAt); err != nil {
 			return nil, 0, err
 		}
 		logs = append(logs, log)
@@ -142,12 +142,12 @@ func (r *OperationLogRepository) GetOperationTypes() ([]string, error) {
 }
 
 // LogOperation is a helper function to create and save a log entry
-func (r *OperationLogRepository) LogOperation(operation, content, operator, ip string) error {
+func (r *OperationLogRepository) LogOperation(operation, detail, operator, ipAddress string) error {
 	log := &model.OperationLog{
 		Operation: operation,
-		Content:   content,
+		Detail:    detail,
 		Operator:  operator,
-		IP:        ip,
+		IPAddress: ipAddress,
 		CreatedAt: time.Now(),
 	}
 	return r.Save(log)

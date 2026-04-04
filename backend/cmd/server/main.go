@@ -82,22 +82,24 @@ func main() {
 	sendMessageHandler := handler.NewSendMessageHandler(smppServer)
 	wsHandler := handler.NewWebSocketHandler(wsHub, cfg.JWTSecret, []string{cfg.CORSOrigins})
 	systemHandler := handler.NewSystemHandler(cfg, "")
+	templateHandler := handler.NewTemplateHandler(templateRepo)
 
 	// Setup router
 	router := SetupRouter(&RouterConfig{
-		JWTSecret:      cfg.JWTSecret,
-		CORSOrigins:    cfg.CORSOrigins,
-		LoginRateLimit: cfg.LoginRateLimit,
-		LoginLimiter:   loginLimiter,
-		AuthHandler:    authHandler,
-		SessionHandler: sessionHandler,
-		MessageHandler: messageHandler,
-		StatsHandler:   statsHandler,
-		MockHandler:    mockHandler,
-		DataHandler:    dataHandler,
-		SendHandler:    sendMessageHandler,
-		WsHandler:      wsHandler,
-		SystemHandler:  systemHandler,
+		JWTSecret:       cfg.JWTSecret,
+		CORSOrigins:     cfg.CORSOrigins,
+		LoginRateLimit:  cfg.LoginRateLimit,
+		LoginLimiter:    loginLimiter,
+		AuthHandler:     authHandler,
+		SessionHandler:  sessionHandler,
+		MessageHandler:  messageHandler,
+		StatsHandler:    statsHandler,
+		MockHandler:     mockHandler,
+		DataHandler:     dataHandler,
+		SendHandler:     sendMessageHandler,
+		WsHandler:       wsHandler,
+		SystemHandler:   systemHandler,
+		TemplateHandler: templateHandler,
 	})
 
 	// Start HTTP server
