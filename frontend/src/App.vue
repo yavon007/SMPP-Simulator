@@ -9,6 +9,10 @@
           </el-icon>
           <h1 class="mobile-title">SMPP Simulator</h1>
           <div class="mobile-user">
+            <el-icon class="theme-toggle-mobile" @click="themeStore.toggleTheme()">
+              <Sunny v-if="themeStore.theme === 'dark'" />
+              <Moon v-else />
+            </el-icon>
             <template v-if="authStore.isAuthenticated">
               <el-dropdown trigger="click">
                 <span class="user-dropdown">
@@ -47,9 +51,9 @@
         <el-menu
           :default-active="currentRoute"
           router
-          background-color="#304156"
-          text-color="#bfcbd9"
-          active-text-color="#409EFF"
+          :background-color="menuBgColor"
+          :text-color="menuTextColor"
+          :active-text-color="menuActiveColor"
           @select="isMobile && (mobileMenuOpen = false)"
         >
           <el-menu-item index="/">
@@ -73,15 +77,26 @@
             <span>模拟配置</span>
           </el-menu-item>
         </el-menu>
-        <div class="auth-section" v-if="!isMobile">
-          <template v-if="authStore.isAuthenticated">
-            <div class="user-info">
-              <el-icon><User /></el-icon>
-              <span>{{ authStore.username }}</span>
-            </div>
-            <el-button type="danger" size="small" @click="handleLogout">退出登录</el-button>
-          </template>
-          <el-button v-else type="primary" size="small" @click="$router.push('/login')">登录</el-button>
+        <div class="sidebar-footer" v-if="!isMobile">
+          <!-- 主题切换按钮 -->
+          <div class="theme-toggle" @click="themeStore.toggleTheme()">
+            <el-icon>
+              <Sunny v-if="themeStore.theme === 'dark'" />
+              <Moon v-else />
+            </el-icon>
+            <span>{{ themeStore.theme === 'dark' ? '浅色模式' : '深色模式' }}</span>
+          </div>
+          <!-- 用户认证区域 -->
+          <div class="auth-section">
+            <template v-if="authStore.isAuthenticated">
+              <div class="user-info">
+                <el-icon><User /></el-icon>
+                <span>{{ authStore.username }}</span>
+              </div>
+              <el-button type="danger" size="small" @click="handleLogout">退出登录</el-button>
+            </template>
+            <el-button v-else type="primary" size="small" @click="$router.push('/login')">登录</el-button>
+          </div>
         </div>
       </el-aside>
 
@@ -95,18 +110,25 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { DataLine, Connection, Message, Setting, Promotion, User, Expand, Cellphone } from '@element-plus/icons-vue'
+import { DataLine, Connection, Message, Setting, Promotion, User, Expand, Cellphone, Sunny, Moon } from '@element-plus/icons-vue'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import { wsClient } from '@/utils/websocket'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const themeStore = useThemeStore()
 
 const currentRoute = computed(() => route.path)
 const isMobile = ref(false)
 const mobileMenuOpen = ref(false)
+
+// 根据主题动态计算菜单颜色
+const menuBgColor = computed(() => themeStore.theme === 'dark' ? '#1f2937' : '#304156')
+const menuTextColor = computed(() => themeStore.theme === 'dark' ? '#d1d5db' : '#bfcbd9')
+const menuActiveColor = computed(() => '#409EFF')
 
 const checkMobile = () => {
   isMobile.value = window.innerWidth <= 768
@@ -132,6 +154,33 @@ onUnmounted(() => {
 </script>
 
 <style>
+/* CSS 变量定义 */
+:root {
+  --bg-color: #f0f2f5;
+  --bg-card: #ffffff;
+  --text-color: #303133;
+  --text-secondary: #606266;
+  --border-color: #dcdfe6;
+  --aside-bg: #304156;
+  --aside-text: #bfcbd9;
+  --aside-border: #3a4758;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --hover-bg: #f5f7fa;
+}
+
+html.dark {
+  --bg-color: #111827;
+  --bg-card: #1f2937;
+  --text-color: #e5e7eb;
+  --text-secondary: #9ca3af;
+  --border-color: #374151;
+  --aside-bg: #1f2937;
+  --aside-text: #d1d5db;
+  --aside-border: #374151;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --hover-bg: #374151;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -142,15 +191,21 @@ html, body, #app {
   height: 100%;
 }
 
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
 .app-container {
   height: 100%;
 }
 
 .app-aside {
-  background-color: #304156;
+  background-color: var(--aside-bg);
   height: 100%;
   position: relative;
-  transition: transform 0.3s ease;
+  transition: transform 0.3s ease, background-color 0.3s ease;
 }
 
 .logo {
@@ -159,7 +214,7 @@ html, body, #app {
   align-items: center;
   justify-content: center;
   color: #fff;
-  border-bottom: 1px solid #3a4758;
+  border-bottom: 1px solid var(--aside-border);
   gap: 8px;
 }
 
@@ -174,16 +229,37 @@ html, body, #app {
 }
 
 .app-main {
-  background-color: #f0f2f5;
+  background-color: var(--bg-color);
   padding: 20px;
   overflow-y: auto;
+  transition: background-color 0.3s ease;
+}
+
+.sidebar-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0 0 20px 0;
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  color: var(--aside-text);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-size: 14px;
+}
+
+.theme-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .auth-section {
-  position: absolute;
-  bottom: 20px;
-  left: 0;
-  right: 0;
   padding: 0 20px;
   display: flex;
   flex-direction: column;
@@ -192,7 +268,7 @@ html, body, #app {
 }
 
 .user-info {
-  color: #bfcbd9;
+  color: var(--aside-text);
   font-size: 14px;
   display: flex;
   align-items: center;
@@ -206,10 +282,11 @@ html, body, #app {
   left: 0;
   right: 0;
   height: 50px;
-  background: #304156;
+  background: var(--aside-bg);
   z-index: 1000;
   display: flex;
   align-items: center;
+  transition: background-color 0.3s ease;
 }
 
 .mobile-header-content {
@@ -235,6 +312,18 @@ html, body, #app {
 .mobile-user {
   display: flex;
   align-items: center;
+  gap: 12px;
+}
+
+.theme-toggle-mobile {
+  font-size: 20px;
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.theme-toggle-mobile:hover {
+  transform: scale(1.1);
 }
 
 .user-dropdown {
@@ -281,5 +370,85 @@ html, body, #app {
   .logo {
     height: 50px;
   }
+}
+
+/* 深色模式下的 Element Plus 组件样式覆盖 */
+html.dark .el-card {
+  background-color: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+html.dark .el-table {
+  background-color: var(--bg-card);
+  --el-table-bg-color: var(--bg-card);
+  --el-table-tr-bg-color: var(--bg-card);
+  --el-table-header-bg-color: var(--bg-card);
+  --el-table-row-hover-bg-color: var(--hover-bg);
+  --el-table-border-color: var(--border-color);
+  --el-table-text-color: var(--text-color);
+}
+
+html.dark .el-table th.el-table__cell {
+  background-color: var(--bg-card);
+}
+
+html.dark .el-input__wrapper {
+  background-color: var(--bg-card);
+  box-shadow: 0 0 0 1px var(--border-color) inset;
+}
+
+html.dark .el-input__inner {
+  color: var(--text-color);
+}
+
+html.dark .el-select__wrapper {
+  background-color: var(--bg-card);
+}
+
+html.dark .el-form-item__label {
+  color: var(--text-secondary);
+}
+
+html.dark .el-dialog {
+  background-color: var(--bg-card);
+}
+
+html.dark .el-dialog__title {
+  color: var(--text-color);
+}
+
+html.dark .el-pagination {
+  --el-pagination-bg-color: var(--bg-card);
+  --el-pagination-text-color: var(--text-color);
+  --el-pagination-button-bg-color: var(--bg-card);
+  --el-pagination-hover-color: #409EFF;
+}
+
+html.dark .el-descriptions {
+  --el-descriptions-item-bordered-label-background: var(--hover-bg);
+}
+
+html.dark .el-empty__description {
+  color: var(--text-secondary);
+}
+
+html.dark .el-statistic__head {
+  color: var(--text-secondary);
+}
+
+html.dark .el-statistic__content {
+  color: var(--text-color);
+}
+
+html.dark .el-dropdown-menu {
+  background-color: var(--bg-card);
+}
+
+html.dark .el-dropdown-menu__item {
+  color: var(--text-color);
+}
+
+html.dark .el-dropdown-menu__item:hover {
+  background-color: var(--hover-bg);
 }
 </style>
