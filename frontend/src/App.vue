@@ -451,4 +451,130 @@ html.dark .el-dropdown-menu__item {
 html.dark .el-dropdown-menu__item:hover {
   background-color: var(--hover-bg);
 }
+
+/* 深色模式下修复硬编码颜色 */
+html.dark .page-title,
+html.dark .card-header,
+html.dark .stat-value,
+html.dark .message-content,
+html.dark .receiver-name,
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark .help-content strong {
+  color: var(--text-color) !important;
+}
+
+html.dark .stat-label,
+html.dark .form-tip,
+html.dark .message-footer,
+html.dark .receiver-addr,
+html.dark .help-content p,
+html.dark .help-item p,
+html.dark .config-page .form-tip,
+html.dark .login-footer p {
+  color: var(--text-secondary) !important;
+}
+
+html.dark .message-route .from,
+html.dark .message-route .to {
+  color: var(--text-color) !important;
+}
+
+/* 修复 Element Plus 组件在深色模式下的颜色 */
+html.dark .el-card__header {
+  color: var(--text-color);
+  border-bottom-color: var(--border-color);
+}
+
+html.dark .el-message-box__title {
+  color: var(--text-color);
+}
+
+html.dark .el-message-box__content {
+  color: var(--text-secondary);
+}
+
+html.dark .el-radio__label {
+  color: var(--text-color);
+}
+
+html.dark .el-checkbox__label {
+  color: var(--text-color);
+}
+
+html.dark .el-textarea__inner {
+  background-color: var(--bg-card);
+  color: var(--text-color);
+  box-shadow: 0 0 0 1px var(--border-color) inset;
+}
+
+html.dark .el-slider__runway {
+  background-color: var(--border-color);
+}
+
+html.dark .el-switch__core {
+  background-color: var(--border-color);
+}
+
+html.dark .el-divider {
+  border-top-color: var(--border-color);
+}
+
+html.dark .el-tag--info {
+  background-color: var(--hover-bg);
+  color: var(--text-color);
+  border-color: var(--border-color);
+}
+
+html.dark .el-progress__text {
+  color: var(--text-color) !important;
+}
+
+html.dark .el-progress-bar__innerText {
+  color: var(--text-color);
+}
+
+/* 修复表格内文字 */
+html.dark .el-table .cell {
+  color: var(--text-color);
+}
+
+html.dark .el-table__empty-text {
+  color: var(--text-secondary);
+}
+
+/* 修复弹窗内文字 */
+html.dark .el-dialog__body {
+  color: var(--text-color);
+}
+
+html.dark .el-dialog__footer {
+  border-top-color: var(--border-color);
+}
+
+/* 修复下拉选择框 */
+html.dark .el-select-dropdown {
+  background-color: var(--bg-card);
+}
+
+html.dark .el-select-dropdown__item {
+  color: var(--text-color);
+}
+
+html.dark .el-select-dropdown__item.hover,
+html.dark .el-select-dropdown__item:hover {
+  background-color: var(--hover-bg);
+}
+
+/* 修复时间选择器 */
+html.dark .el-date-picker {
+  background-color: var(--bg-card);
+}
+
+html.dark .el-picker-panel__body {
+  color: var(--text-color);
+}
+
 </style>
