@@ -4,34 +4,36 @@ SMPP 短信模拟器，为短信平台提供 SMPP 协议功能测试环境。
 
 ## 功能特性
 
+### 核心功能
 - SMPP 协议服务端（TCP 2775 端口）
 - REST API 管理接口
 - WebSocket 实时推送
 - 用户认证与权限控制
 - 可配置的模拟行为
- - Docker 部署支持
+- Docker 部署支持
+
+### 数据库支持
+- **SQLite** - 默认，无需额外配置
+- **PostgreSQL** - 生产环境推荐
+- **MySQL** - 可选
+
+### 界面功能
 - **移动端适配** - 响应式设计，支持手机访问
 - **深色模式** - 支持亮色/暗色主题切换
 - **国际化** - 支持中英文切换
+
+### 消息管理
 - **消息搜索** - 支持内容、状态、时间范围搜索
 - **消息导出** - 支持 CSV/JSON 格式导出
 - **批量操作** - 支持批量删除消息
 - **消息模板** - 预定义常用消息模板
+- **消息详情** - 弹窗查看完整消息信息
+
+### 统计与监控
+- **仪表盘图表** - 消息状态分布可视化
 - **连接统计** - 查看连接的消息统计
 - **API 限流可视化** - 显示剩余登录次数
-- **移动端适配** - 响应式设计，支持手机访问
-- **深色模式** - 支持亮色/暗色主题切换
-- **国际化** - 支持中英文切换
-- **消息搜索** - 支持内容模糊搜索
-- **消息导出** - 支持 CSV/JSON 格式导出
-- **批量操作** - 支持批量删除消息
-- **消息模板** - 预定义常用消息模板
-- **连接统计** - 查看连接消息统计
-- **API 限流可视化** - 显示剩余登录次数
-- **移动端适配** - 响应式设计，支持手机访问
-- **深色模式** - 支持亮色/深色主题切换
-- **国际化** - 支持中英文切换
-- **消息模板** - 预定义常用消息模板
+- **系统配置页面** - 运行时配置管理
 
 ## 界面预览
 
@@ -43,9 +45,9 @@ SMPP 短信模拟器，为短信平台提供 SMPP 协议功能测试环境。
 |:----------------------:|:----------------------:|
 | ![连接管理](preview/3.png) | ![发送消息](preview/4.png) |
 
-|          模拟配置          |                    |
+|          模拟配置          |          系统配置          |
 |:----------------------:|:----------------------:|
-| ![连接管理](preview/5.png) |  |
+| ![模拟配置](preview/5.png) | ![系统配置](preview/6.png) |
 
 ## 快速开始
 
@@ -86,6 +88,37 @@ pnpm dev
 2. **配置文件** - YAML 格式，适合本地开发
 3. **默认值** - 兜底配置
 
+### 数据库配置
+
+#### SQLite（默认）
+
+```yaml
+db_type: sqlite
+db_path: "./smpp.db"
+```
+
+#### PostgreSQL（推荐生产环境）
+
+```yaml
+db_type: postgres
+db_host: localhost
+db_port: 5432
+db_name: smpp
+db_user: smpp
+db_password: your-password
+```
+
+#### MySQL
+
+```yaml
+db_type: mysql
+db_host: localhost
+db_port: 3306
+db_name: smpp
+db_user: smpp
+db_password: your-password
+```
+
 ### 配置文件
 
 复制配置模板并修改：
@@ -106,8 +139,20 @@ smpp_port: "2775"          # SMPP 监听端口
 http_host: "0.0.0.0"       # HTTP 监听地址
 http_port: "8080"          # HTTP 监听端口
 
-# Database
+# Database (SQLite)
+db_type: "sqlite"          # sqlite / postgres / mysql
 db_path: "./smpp.db"       # SQLite 数据库路径
+
+# Database (PostgreSQL/MySQL)
+# db_host: "localhost"
+# db_port: 5432
+# db_name: "smpp"
+# db_user: "smpp"
+# db_password: "password"
+
+# Redis (可选，用于缓存)
+# redis_host: "localhost"
+# redis_port: 6379
 
 # Auth
 admin_password: "admin123"           # 管理员密码（生产环境请修改）
@@ -129,7 +174,15 @@ login_rate_limit: 5                  # 每分钟最大登录尝试次数
 | `SMPP_PORT` | SMPP 监听端口 | 2775 |
 | `HTTP_HOST` | HTTP 监听地址 | 0.0.0.0 |
 | `HTTP_PORT` | HTTP 监听端口 | 8080 |
-| `DB_PATH` | 数据库路径 | ./smpp.db |
+| `DB_TYPE` | 数据库类型 | sqlite |
+| `DB_PATH` | SQLite 数据库路径 | ./smpp.db |
+| `DB_HOST` | 数据库主机 | localhost |
+| `DB_PORT` | 数据库端口 | 5432 |
+| `DB_NAME` | 数据库名称 | smpp |
+| `DB_USER` | 数据库用户 | smpp |
+| `DB_PASSWORD` | 数据库密码 | - |
+| `REDIS_HOST` | Redis 主机 | - |
+| `REDIS_PORT` | Redis 端口 | 6379 |
 | `ADMIN_PASSWORD` | 管理员密码 | admin123 |
 | `JWT_SECRET` | JWT 密钥 | smpp-simulator-secret-key |
 | `JWT_EXPIRY` | Token 有效期(小时) | 24 |
@@ -144,6 +197,12 @@ login_rate_limit: 5                  # 每分钟最大登录尝试次数
 services:
   backend:
     environment:
+      - DB_TYPE=postgres
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=smpp
+      - DB_USER=smpp
+      - DB_PASSWORD=smpp123
       - ADMIN_PASSWORD=your-secure-password
       - JWT_SECRET=your-jwt-secret
 ```
@@ -157,7 +216,9 @@ services:
 | 仪表盘 | ✅ | ✅ |
 | 消息列表 | ✅ | ✅ |
 | 连接管理 | ❌ | ✅ |
+| 发送消息 | ❌ | ✅ |
 | 模拟配置 | ❌ | ✅ |
+| 系统配置 | ❌ | ✅ |
 
 ### 登录信息
 
@@ -315,6 +376,9 @@ npx swagger-ui-watcher docs/openapi.yaml
 services:
   backend:
     environment:
+      - DB_TYPE=postgres
+      - DB_HOST=postgres
+      - DB_PASSWORD=your-strong-db-password
       - ADMIN_PASSWORD=your-strong-password-here
       - JWT_SECRET=your-random-jwt-secret-at-least-32-chars
       - CORS_ORIGINS=https://your-domain.com
@@ -408,7 +472,7 @@ systemctl start smpp-simulator
 
 ## 技术栈
 
-- **后端**：Go + Gin + SQLite
+- **后端**：Go + Gin + SQLite/PostgreSQL/MySQL
 - **前端**：Vue 3 + TypeScript + Element Plus + Pinia
 - **部署**：Docker + docker-compose
 
