@@ -14,17 +14,20 @@ import (
 
 // RouterConfig holds dependencies for router setup
 type RouterConfig struct {
-	JWTSecret      string
-	CORSOrigins    string
-	LoginRateLimit int
-	AuthHandler    *handler.AuthHandler
-	SessionHandler *handler.SessionHandler
-	MessageHandler *handler.MessageHandler
-	StatsHandler   *handler.StatsHandler
-	MockHandler    *handler.MockHandler
-	DataHandler    *handler.DataHandler
-	SendHandler    *handler.SendMessageHandler
-	WsHandler      *handler.WebSocketHandler
+	JWTSecret       string
+	CORSOrigins     string
+	LoginRateLimit  int
+	LoginLimiter    *middleware.RateLimiter
+	AuthHandler     *handler.AuthHandler
+	SessionHandler  *handler.SessionHandler
+	MessageHandler  *handler.MessageHandler
+	StatsHandler    *handler.StatsHandler
+	MockHandler     *handler.MockHandler
+	DataHandler     *handler.DataHandler
+	SendHandler     *handler.SendMessageHandler
+	WsHandler       *handler.WebSocketHandler
+	SystemHandler   *handler.SystemHandler
+	TemplateHandler *handler.TemplateHandler
 }
 
 // SetupRouter creates and configures the Gin router
@@ -52,7 +55,10 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 	}))
 
 	// Create login rate limiter (default 5 attempts per minute)
-	loginLimiter := middleware.NewRateLimiter(cfg.LoginRateLimit, time.Minute)
+	loginLimiter := cfg.LoginLimiter
+	if loginLimiter == nil {
+		loginLimiter = middleware.NewRateLimiter(cfg.LoginRateLimit, time.Minute)
+	}
 
 	// API routes
 	api := router.Group("/api")
@@ -84,6 +90,18 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 		// Send message (deliver_sm)
 		protected.GET("/send/receivers", cfg.SendHandler.ListReceivers)
 		protected.POST("/send", cfg.SendHandler.SendMessage)
+		// System configuration
+		protected.GET("/system/config", cfg.SystemHandler.GetConfig)
+		protected.PUT("/system/config", cfg.SystemHandler.UpdateConfig)
+		protected.GET("/system/redis", cfg.SystemHandler.CheckRedis)
+		// Message templates
+		protected.GET("/templates", cfg.TemplateHandler.List)
+		protected.GET("/templates/:id", cfg.TemplateHandler.Get)
+		protected.POST("/templates", cfg.TemplateHandler.Create)
+		protected.PUT("/templates/:id", cfg.TemplateHandler.Update)
+		protected.DELETE("/templates/:id", cfg.TemplateHandler.Delete)
+		// Rate limit status
+		protected.GET("/stats/rate-limit", cfg.StatsHandler.GetRateLimit)
 	}
 
 	// WebSocket

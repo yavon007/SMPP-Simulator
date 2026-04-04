@@ -43,6 +43,9 @@ type Config struct {
 	// Security
 	CORSOrigins    string `yaml:"cors_origins"`    // Comma-separated allowed origins
 	LoginRateLimit int    `yaml:"login_rate_limit"` // Max login attempts per minute
+
+	// UI
+	Language string `yaml:"language"` // UI language: zh-CN, en-US
 }
 
 // DefaultConfig returns default configuration
@@ -65,6 +68,8 @@ func DefaultConfig() *Config {
 
 		CORSOrigins:    "*",
 		LoginRateLimit: 5, // 5 attempts per minute
+
+		Language: "zh-CN",
 	}
 }
 
@@ -188,6 +193,10 @@ func overrideWithEnv(cfg *Config) {
 		if i, err := strconv.Atoi(v); err == nil {
 			cfg.LoginRateLimit = i
 		}
+	}
+	// UI
+	if v := os.Getenv("LANGUAGE"); v != "" {
+		cfg.Language = v
 	}
 }
 

@@ -144,6 +144,13 @@ func (d *Database) createTables() error {
 			deliver_report INTEGER NOT NULL DEFAULT 0,
 			deliver_delay INTEGER NOT NULL DEFAULT 1000
 		)`, autoIncrement),
+		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS message_templates (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			content TEXT NOT NULL,
+			encoding TEXT NOT NULL DEFAULT 'GSM7',
+			created_at %s NOT NULL
+		)`, timestampType),
 		`CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status)`,
 		`CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at)`,

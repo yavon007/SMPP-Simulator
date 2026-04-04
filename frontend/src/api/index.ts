@@ -2,7 +2,7 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import router from '@/router'
-import type { Session, Message, Stats, MockConfig, Receiver, SessionDetail } from '@/types'
+import type { Session, Message, Stats, MockConfig, Receiver, SessionDetail, MessageTemplate, CreateTemplateRequest, UpdateTemplateRequest, SystemConfig, UpdateSystemConfigRequest, RateLimitStatus } from '@/types'
 
 const api = axios.create({
   baseURL: '/api',
@@ -119,6 +119,22 @@ export const sendApi = {
     content: string
     encoding?: 'GSM7' | 'UCS2'
   }) => api.post<{ message: string; session_id: string }>('/send', params)
+}
+
+// Template API
+export const templateApi = {
+  list: () => api.get<{ data: MessageTemplate[] }>('/templates'),
+  get: (id: string) => api.get<MessageTemplate>(`/templates/${id}`),
+  create: (data: CreateTemplateRequest) => api.post<MessageTemplate>('/templates', data),
+  update: (id: string, data: UpdateTemplateRequest) => api.put<MessageTemplate>(`/templates/${id}`, data),
+  delete: (id: string) => api.delete<{ message: string }>(`/templates/${id}`)
+}
+
+// System API
+export const systemApi = {
+  getConfig: () => api.get<SystemConfig>('/system/config'),
+  updateConfig: (data: UpdateSystemConfigRequest) => api.put<{ message: string }>('/system/config', data),
+  checkRedis: () => api.get<{ connected: boolean; error?: string }>('/system/redis')
 }
 
 export default api

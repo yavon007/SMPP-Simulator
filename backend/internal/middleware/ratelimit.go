@@ -111,3 +111,43 @@ func RateLimitMiddleware(limiter *RateLimiter) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// RateLimitStatus represents the current rate limit status for a client
+type RateLimitStatus struct {
+	Remaining    int       `json:"remaining"`
+	ResetAt      time.Time `json:"reset_at"`
+	Total        int       `json:"total"`
+	IsLimited    bool      `json:"is_limited"`
+	WindowSeconds int      `json:"window_seconds"`
+}
+
+// GetStatus returns the current rate limit status for the given IP
+func (rl *RateLimiter) GetStatus(ip string) RateLimitStatus {
+	rl.mu.RLock()
+	defer rl.mu.RUnlock()
+
+	now := time.Now()
+	status := RateLimitStatus{
+		Total:         rl.rate,
+		WindowSeconds: int(rl.window.Seconds()),
+	}
+
+	v, exists := rl.visitors[ip]
+	if !exists || now.After(v.expiresAt) {
+		// No record or expired, full limit available
+		status.Remaining = rl.rate
+		status.ResetAt = now.Add(rl.window)
+		status.IsLimited = false
+		return status
+	}
+
+	// Active record exists
+	status.Remaining = rl.rate - v.count
+	if status.Remaining < 0 {
+		status.Remaining = 0
+	}
+	status.ResetAt = v.expiresAt
+	status.IsLimited = v.count >= rl.rate
+
+	return status
+}

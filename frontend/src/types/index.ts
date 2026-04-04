@@ -111,3 +111,58 @@ export type WsEvent =
   | WsSessionDisconnectEvent
   | WsMessageReceivedEvent
   | WsMessageDeliveredEvent
+
+// SystemConfig interface
+export interface SystemConfig {
+  smpp_port: string
+  http_port: string
+  db_type: string
+  redis_enabled: boolean
+  redis_status: string
+  admin_password: string
+  jwt_expiry: number
+  cors_origins: string
+  login_rate_limit: number
+}
+
+// UpdateSystemConfigRequest interface
+export interface UpdateSystemConfigRequest {
+  old_password?: string
+  new_password?: string
+  confirm_password?: string
+  jwt_expiry?: number
+  cors_origins?: string
+  login_rate_limit?: number
+}
+
+// RateLimitStatus interface
+export interface RateLimitStatus {
+  remaining: number
+  reset_at: string | null
+  total: number
+  is_limited: boolean
+  window_seconds: number
+}
+
+// MessageTemplate interface
+export interface MessageTemplate {
+  id: string
+  name: string
+  content: string
+  encoding: string
+  created_at: string
+}
+
+// CreateTemplateRequest interface
+export interface CreateTemplateRequest {
+  name: string
+  content: string
+  encoding?: string
+}
+
+// UpdateTemplateRequest interface
+export interface UpdateTemplateRequest {
+  name: string
+  content: string
+  encoding?: string
+}

@@ -12,6 +12,7 @@ import (
 
 	"smpp-simulator/internal/config"
 	"smpp-simulator/internal/handler"
+	"smpp-simulator/internal/middleware"
 	"smpp-simulator/internal/model"
 	"smpp-simulator/internal/repository"
 	"smpp-simulator/internal/smpp"
@@ -45,6 +46,7 @@ func main() {
 	sessionRepo := repository.NewSessionRepository(db)
 	messageRepo := repository.NewMessageRepository(db)
 	mockConfigRepo := repository.NewMockConfigRepository(db)
+	templateRepo := repository.NewTemplateRepository(db)
 
 	// Create SMPP server
 	smppServer := smpp.NewServer(cfg.SMPPHost, cfg.SMPPPort, messageRepo)
@@ -73,17 +75,20 @@ func main() {
 	authHandler := handler.NewAuthHandler(cfg.AdminPassword, cfg.JWTSecret, cfg.JWTExpiry)
 	sessionHandler := handler.NewSessionHandler(smppServer, messageRepo)
 	messageHandler := handler.NewMessageHandler(messageRepo)
-	statsHandler := handler.NewStatsHandler(messageRepo, smppServer)
+	loginLimiter := middleware.NewRateLimiter(cfg.LoginRateLimit, time.Minute)
+	statsHandler := handler.NewStatsHandler(messageRepo, smppServer, loginLimiter)
 	mockHandler := handler.NewMockHandler(mockConfigRepo, smppServer)
 	dataHandler := handler.NewDataHandler(messageRepo, sessionRepo)
 	sendMessageHandler := handler.NewSendMessageHandler(smppServer)
 	wsHandler := handler.NewWebSocketHandler(wsHub, cfg.JWTSecret, []string{cfg.CORSOrigins})
+	systemHandler := handler.NewSystemHandler(cfg, "")
 
 	// Setup router
 	router := SetupRouter(&RouterConfig{
 		JWTSecret:      cfg.JWTSecret,
 		CORSOrigins:    cfg.CORSOrigins,
 		LoginRateLimit: cfg.LoginRateLimit,
+		LoginLimiter:   loginLimiter,
 		AuthHandler:    authHandler,
 		SessionHandler: sessionHandler,
 		MessageHandler: messageHandler,
@@ -92,6 +97,7 @@ func main() {
 		DataHandler:    dataHandler,
 		SendHandler:    sendMessageHandler,
 		WsHandler:      wsHandler,
+		SystemHandler:  systemHandler,
 	})
 
 	// Start HTTP server

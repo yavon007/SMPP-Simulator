@@ -48,6 +48,12 @@
             </el-form-item>
 
             <el-form-item label="消息内容" prop="content">
+              <div class="content-header">
+                <el-button type="primary" link @click="showTemplateDialog">
+                  <el-icon><DocumentCopy /></el-icon>
+                  使用模板
+                </el-button>
+              </div>
               <el-input
                 v-model="form.content"
                 type="textarea"
@@ -140,14 +146,82 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- Template Selection Dialog -->
+    <el-dialog v-model="templateDialogVisible" title="选择消息模板" width="600px" destroy-on-close>
+      <div v-loading="templatesLoading">
+        <el-table :data="templates" empty-text="暂无模板" @row-click="selectTemplate" highlight-current-row>
+          <el-table-column prop="name" label="模板名称" width="120" />
+          <el-table-column prop="content" label="内容" show-overflow-tooltip />
+          <el-table-column prop="encoding" label="编码" width="80" />
+          <el-table-column label="操作" width="80">
+            <template #default="{ row }">
+              <el-button type="primary" link @click.stop="selectTemplate(row)">选择</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <template #footer>
+        <el-button @click="templateDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="showManageDialog">管理模板</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Template Management Dialog -->
+    <el-dialog v-model="manageDialogVisible" title="管理消息模板" width="700px" destroy-on-close>
+      <div class="template-manage-header">
+        <el-button type="primary" @click="showCreateDialog">
+          <el-icon><Plus /></el-icon>
+          新建模板
+        </el-button>
+      </div>
+      <el-table :data="templates" v-loading="templatesLoading" empty-text="暂无模板">
+        <el-table-column prop="name" label="模板名称" width="120" />
+        <el-table-column prop="content" label="内容" show-overflow-tooltip />
+        <el-table-column prop="encoding" label="编码" width="80" />
+        <el-table-column label="操作" width="150">
+          <template #default="{ row }">
+            <el-button type="primary" link @click="editTemplate(row)">编辑</el-button>
+            <el-button type="danger" link @click="deleteTemplate(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
+
+    <!-- Create/Edit Template Dialog -->
+    <el-dialog v-model="editDialogVisible" :title="editingTemplate ? '编辑模板' : '新建模板'" width="500px" destroy-on-close>
+      <el-form :model="templateForm" label-position="top" ref="templateFormRef" :rules="templateRules">
+        <el-form-item label="模板名称" prop="name">
+          <el-input v-model="templateForm.name" placeholder="请输入模板名称" />
+        </el-form-item>
+        <el-form-item label="消息内容" prop="content">
+          <el-input
+            v-model="templateForm.content"
+            type="textarea"
+            :rows="4"
+            placeholder="请输入模板内容，可使用 {code}、{order_id} 等占位符"
+          />
+        </el-form-item>
+        <el-form-item label="编码方式">
+          <el-radio-group v-model="templateForm.encoding">
+            <el-radio value="GSM7">GSM7</el-radio>
+            <el-radio value="UCS2">UCS2 (中文)</el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="editDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveTemplate" :loading="savingTemplate">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { Refresh, Right } from '@element-plus/icons-vue'
-import { sendApi, type Receiver } from '@/api'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { Refresh, Right, DocumentCopy, Plus } from '@element-plus/icons-vue'
+import { sendApi, templateApi, type Receiver, type MessageTemplate } from '@/api'
 
 const formRef = ref<FormInstance>()
 const loading = ref(false)
@@ -169,6 +243,27 @@ const rules: FormRules = {
   content: [{ required: true, message: '请输入消息内容', trigger: 'blur' }]
 }
 
+// Template related state
+const templateDialogVisible = ref(false)
+const manageDialogVisible = ref(false)
+const editDialogVisible = ref(false)
+const templates = ref<MessageTemplate[]>([])
+const templatesLoading = ref(false)
+const savingTemplate = ref(false)
+const editingTemplate = ref<MessageTemplate | null>(null)
+const templateFormRef = ref<FormInstance>()
+
+const templateForm = ref({
+  name: '',
+  content: '',
+  encoding: 'UCS2' as 'GSM7' | 'UCS2'
+})
+
+const templateRules: FormRules = {
+  name: [{ required: true, message: '请输入模板名称', trigger: 'blur' }],
+  content: [{ required: true, message: '请输入模板内容', trigger: 'blur' }]
+}
+
 const fetchReceivers = async () => {
   loading.value = true
   try {
@@ -181,6 +276,18 @@ const fetchReceivers = async () => {
   }
 }
 
+const fetchTemplates = async () => {
+  templatesLoading.value = true
+  try {
+    const { data } = await templateApi.list()
+    templates.value = data.data || []
+  } catch {
+    ElMessage.error('获取模板列表失败')
+  } finally {
+    templatesLoading.value = false
+  }
+}
+
 const handleSessionChange = () => {
   // 可以在这里自动填充一些默认值
 }
@@ -188,6 +295,99 @@ const handleSessionChange = () => {
 const selectReceiver = (receiver: Receiver) => {
   form.value.session_id = receiver.id
   ElMessage.success(`已选择: ${receiver.system_id}`)
+}
+
+const showTemplateDialog = () => {
+  templateDialogVisible.value = true
+  fetchTemplates()
+}
+
+const selectTemplate = (template: MessageTemplate) => {
+  form.value.content = template.content
+  if (template.encoding === 'UCS2' || template.encoding === 'GSM7') {
+    form.value.encoding = template.encoding
+  }
+  templateDialogVisible.value = false
+  ElMessage.success(`已应用模板: ${template.name}`)
+}
+
+const showManageDialog = () => {
+  templateDialogVisible.value = false
+  manageDialogVisible.value = true
+  fetchTemplates()
+}
+
+const showCreateDialog = () => {
+  editingTemplate.value = null
+  templateForm.value = {
+    name: '',
+    content: '',
+    encoding: 'UCS2'
+  }
+  editDialogVisible.value = true
+}
+
+const editTemplate = (template: MessageTemplate) => {
+  editingTemplate.value = template
+  templateForm.value = {
+    name: template.name,
+    content: template.content,
+    encoding: (template.encoding === 'GSM7' || template.encoding === 'UCS2') ? template.encoding : 'UCS2'
+  }
+  editDialogVisible.value = true
+}
+
+const saveTemplate = async () => {
+  if (!templateFormRef.value) return
+
+  await templateFormRef.value.validate(async (valid) => {
+    if (!valid) return
+
+    savingTemplate.value = true
+    try {
+      if (editingTemplate.value) {
+        await templateApi.update(editingTemplate.value.id, {
+          name: templateForm.value.name,
+          content: templateForm.value.content,
+          encoding: templateForm.value.encoding
+        })
+        ElMessage.success('模板更新成功')
+      } else {
+        await templateApi.create({
+          name: templateForm.value.name,
+          content: templateForm.value.content,
+          encoding: templateForm.value.encoding
+        })
+        ElMessage.success('模板创建成功')
+      }
+      editDialogVisible.value = false
+      fetchTemplates()
+    } catch {
+      ElMessage.error('保存模板失败')
+    } finally {
+      savingTemplate.value = false
+    }
+  })
+}
+
+const deleteTemplate = async (template: MessageTemplate) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除模板 "${template.name}" 吗？`,
+      '删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    await templateApi.delete(template.id)
+    ElMessage.success('模板删除成功')
+    fetchTemplates()
+  } catch {
+    // User cancelled or API error
+  }
 }
 
 const handleSend = async () => {
@@ -247,6 +447,12 @@ onMounted(() => {
   margin-top: 4px;
 }
 
+.content-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
 .form-actions {
   margin-bottom: 0;
 }
@@ -288,6 +494,11 @@ onMounted(() => {
   color: #606266;
   line-height: 1.5;
   font-size: 13px;
+}
+
+/* Template Management */
+.template-manage-header {
+  margin-bottom: 16px;
 }
 
 /* 移动端接收方列表 */
