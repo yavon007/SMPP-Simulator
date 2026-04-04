@@ -15,11 +15,25 @@ services:
       - HTTP_HOST=0.0.0.0
       - HTTP_PORT=8080
       - DB_PATH=/app/data/smpp.db
+      # Database configuration (optional)
+      # - DB_TYPE=postgres
+      # - DB_HOST=postgres
+      # - DB_PORT=5432
+      # - DB_NAME=smpp
+      # - DB_USER=smpp
+      # - DB_PASSWORD=smpp123
+      # Redis configuration (optional)
+      # - REDIS_HOST=redis
+      # - REDIS_PORT=6379
       # Security: Change these in production
       # - ADMIN_PASSWORD=your-secure-password
       # - JWT_SECRET=your-secure-jwt-secret
       # - CORS_ORIGINS=https://your-domain.com
     restart: unless-stopped
+    # Redis is optional - backend will work without it
+    # depends_on:
+    #   redis:
+    #     condition: service_healthy
     # Security: Run with limited privileges
     security_opt:
       - no-new-privileges:true
@@ -62,5 +76,50 @@ services:
           cpus: '0.1'
           memory: 64M
 
+  redis:
+    image: redis:7-alpine
+    container_name: smpp-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: smpp-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=smpp
+      - POSTGRES_PASSWORD=smpp123
+      - POSTGRES_DB=smpp
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smpp -d smpp"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
 volumes:
   smpp-data:
+  redis-data:
+  postgres-data:

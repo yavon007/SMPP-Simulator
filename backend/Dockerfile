@@ -20,7 +20,7 @@ COPY . .
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o smpp-simulator ./cmd/server
 
 # Runtime stage
-FROM alpine:latest
+FROM alpine:3.19
 
 WORKDIR /app
 

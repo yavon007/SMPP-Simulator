@@ -12,6 +12,7 @@ import (
 
 	"smpp-simulator/internal/config"
 	"smpp-simulator/internal/handler"
+	"smpp-simulator/internal/middleware"
 	"smpp-simulator/internal/model"
 	"smpp-simulator/internal/repository"
 	"smpp-simulator/internal/smpp"
@@ -25,16 +26,27 @@ func main() {
 	cfg.CheckSecurityWarnings()
 
 	// Initialize database
-	db, err := repository.NewDatabase(cfg.DBPath)
+	dbCfg := &repository.DatabaseConfig{
+		Type:     cfg.DBType,
+		Path:     cfg.DBPath,
+		Host:     cfg.DBHost,
+		Port:     cfg.DBPort,
+		User:     cfg.DBUser,
+		Password: cfg.DBPassword,
+		Name:     cfg.DBName,
+	}
+	db, err := repository.NewDatabase(dbCfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer db.Close()
+	log.Printf("Database connected: %s", cfg.DBType)
 
 	// Initialize repositories
 	sessionRepo := repository.NewSessionRepository(db)
 	messageRepo := repository.NewMessageRepository(db)
 	mockConfigRepo := repository.NewMockConfigRepository(db)
+	templateRepo := repository.NewTemplateRepository(db)
 
 	// Create SMPP server
 	smppServer := smpp.NewServer(cfg.SMPPHost, cfg.SMPPPort, messageRepo)
@@ -61,34 +73,43 @@ func main() {
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(cfg.AdminPassword, cfg.JWTSecret, cfg.JWTExpiry)
-	sessionHandler := handler.NewSessionHandler(smppServer)
+	sessionHandler := handler.NewSessionHandler(smppServer, messageRepo)
 	messageHandler := handler.NewMessageHandler(messageRepo)
-	statsHandler := handler.NewStatsHandler(messageRepo, smppServer)
+	loginLimiter := middleware.NewRateLimiter(cfg.LoginRateLimit, time.Minute)
+	statsHandler := handler.NewStatsHandler(messageRepo, smppServer, loginLimiter)
 	mockHandler := handler.NewMockHandler(mockConfigRepo, smppServer)
 	dataHandler := handler.NewDataHandler(messageRepo, sessionRepo)
 	sendMessageHandler := handler.NewSendMessageHandler(smppServer)
 	wsHandler := handler.NewWebSocketHandler(wsHub, cfg.JWTSecret, []string{cfg.CORSOrigins})
+	systemHandler := handler.NewSystemHandler(cfg, "")
+	templateHandler := handler.NewTemplateHandler(templateRepo)
 
 	// Setup router
 	router := SetupRouter(&RouterConfig{
-		JWTSecret:      cfg.JWTSecret,
-		CORSOrigins:    cfg.CORSOrigins,
-		LoginRateLimit: cfg.LoginRateLimit,
-		AuthHandler:    authHandler,
-		SessionHandler: sessionHandler,
-		MessageHandler: messageHandler,
-		StatsHandler:   statsHandler,
-		MockHandler:    mockHandler,
-		DataHandler:    dataHandler,
-		SendHandler:    sendMessageHandler,
-		WsHandler:      wsHandler,
+		JWTSecret:       cfg.JWTSecret,
+		CORSOrigins:     cfg.CORSOrigins,
+		LoginRateLimit:  cfg.LoginRateLimit,
+		LoginLimiter:    loginLimiter,
+		AuthHandler:     authHandler,
+		SessionHandler:  sessionHandler,
+		MessageHandler:  messageHandler,
+		StatsHandler:    statsHandler,
+		MockHandler:     mockHandler,
+		DataHandler:     dataHandler,
+		SendHandler:     sendMessageHandler,
+		WsHandler:       wsHandler,
+		SystemHandler:   systemHandler,
+		TemplateHandler: templateHandler,
 	})
 
 	// Start HTTP server
 	httpAddr := fmt.Sprintf("%s:%s", cfg.HTTPHost, cfg.HTTPPort)
 	httpServer := &http.Server{
-		Addr:    httpAddr,
-		Handler: router,
+		Addr:         httpAddr,
+		Handler:      router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	go func() {
@@ -112,6 +133,9 @@ func main() {
 	// Graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
+	// Shutdown WebSocket hub
+	wsHub.Shutdown()
 
 	if err := httpServer.Shutdown(ctx); err != nil {
 		log.Printf("HTTP server shutdown error: %v", err)

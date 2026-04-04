@@ -1,0 +1,1 @@
+function e(e){return{pending:`warning`,delivered:`success`,failed:`danger`}[e]||`info`}function t(e){return{pending:`待处理`,delivered:`已送达`,failed:`失败`}[e]||e}export{e as n,t};

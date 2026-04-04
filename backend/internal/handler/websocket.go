@@ -14,8 +14,8 @@ import (
 
 // WebSocketHandler handles WebSocket connections
 type WebSocketHandler struct {
-	hub         *WebSocketHub
-	jwtSecret   string
+	hub          *WebSocketHub
+	jwtSecret    string
 	allowOrigins []string
 }
 
@@ -75,6 +75,7 @@ type WebSocketHub struct {
 	unregister chan *WebSocketClient
 	broadcast  chan []byte
 	mu         sync.RWMutex
+	shutdown   chan struct{} // channel to signal shutdown
 }
 
 // NewWebSocketHub creates a new WebSocket hub
@@ -84,6 +85,7 @@ func NewWebSocketHub() *WebSocketHub {
 		register:   make(chan *WebSocketClient),
 		unregister: make(chan *WebSocketClient),
 		broadcast:  make(chan []byte, 256),
+		shutdown:   make(chan struct{}),
 	}
 }
 
@@ -91,6 +93,18 @@ func NewWebSocketHub() *WebSocketHub {
 func (h *WebSocketHub) Run() {
 	for {
 		select {
+		case <-h.shutdown:
+			// Shutdown signal received, close all clients
+			h.mu.Lock()
+			for client := range h.clients {
+				close(client.send)
+				client.conn.Close()
+				delete(h.clients, client)
+			}
+			h.mu.Unlock()
+			log.Println("WebSocket hub shutdown complete")
+			return
+
 		case client := <-h.register:
 			h.mu.Lock()
 			h.clients[client] = true
@@ -123,7 +137,16 @@ func (h *WebSocketHub) Run() {
 
 // Broadcast sends a message to all connected clients
 func (h *WebSocketHub) Broadcast(message []byte) {
-	h.broadcast <- message
+	select {
+	case h.broadcast <- message:
+	case <-h.shutdown:
+		// Hub is shutting down, don't try to broadcast
+	}
+}
+
+// Shutdown gracefully shuts down the hub
+func (h *WebSocketHub) Shutdown() {
+	close(h.shutdown)
 }
 
 // writePump pumps messages from the hub to the WebSocket connection

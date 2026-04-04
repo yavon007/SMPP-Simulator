@@ -4,10 +4,10 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Copy package files
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci
 
 # Copy source code
 COPY . .
@@ -16,7 +16,7 @@ COPY . .
 RUN npm run build
 
 # Runtime stage
-FROM nginx:alpine
+FROM nginx:1.25-alpine
 
 # Copy built files
 COPY --from=builder /app/dist /usr/share/nginx/html

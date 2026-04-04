@@ -1,7 +1,8 @@
 import axios from 'axios'
+import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import router from '@/router'
-import type { Session, Message, Stats, MockConfig, Receiver } from '@/types'
+import type { Session, Message, Stats, MockConfig, Receiver, SessionDetail, MessageTemplate, CreateTemplateRequest, UpdateTemplateRequest, SystemConfig, UpdateSystemConfigRequest, RateLimitStatus } from '@/types'
 
 const api = axios.create({
   baseURL: '/api',
@@ -17,15 +18,34 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Response interceptor - handle 401 errors
+// Response interceptor - handle errors globally
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status
+    const message = error.response?.data?.error || error.message || 'Unknown error'
+
+    if (status === 401) {
       const authStore = useAuthStore()
       authStore.logout()
       router.push('/login')
+      ElMessage.error('登录已过期，请重新登录')
+    } else if (status === 403) {
+      ElMessage.error('没有权限执行此操作')
+    } else if (status === 404) {
+      ElMessage.error('请求的资源不存在')
+    } else if (status === 429) {
+      ElMessage.error('请求过于频繁，请稍后再试')
+    } else if (status >= 500) {
+      ElMessage.error('服务器错误，请稍后再试')
+    } else if (error.code === 'ECONNABORTED') {
+      ElMessage.error('请求超时，请检查网络连接')
+    } else if (!status) {
+      ElMessage.error('网络连接失败，请检查网络')
+    } else {
+      ElMessage.error(message)
     }
+
     return Promise.reject(error)
   }
 )
@@ -33,6 +53,7 @@ api.interceptors.response.use(
 // Session API
 export const sessionApi = {
   list: () => api.get<{ data: Session[], total: number }>('/sessions'),
+  getStats: (id: string) => api.get<SessionDetail>(`/sessions/${id}/stats`),
   delete: (id: string) => api.delete(`/sessions/${id}`)
 }
 
@@ -50,7 +71,17 @@ export const messageApi = {
   }) => api.get<{ data: Message[], total: number, page: number, page_size: number }>('/messages', { params }),
   get: (id: string) => api.get<Message>(`/messages/${id}`),
   deliver: (id: string) => api.post(`/messages/${id}/deliver`),
-  fail: (id: string) => api.post(`/messages/${id}/fail`)
+  fail: (id: string) => api.post(`/messages/${id}/fail`),
+  batchDelete: (ids: string[]) => api.delete<{ message: string; deleted_count: number }>('/messages/batch', { data: { ids } }),
+  export: (params: {
+    session_id?: string
+    status?: string
+    source_addr?: string
+    dest_addr?: string
+    start_time?: string
+    end_time?: string
+    format?: 'csv' | 'json'
+  }) => api.get('/messages/export', { params, responseType: 'blob' })
 }
 
 // Stats API
@@ -88,6 +119,22 @@ export const sendApi = {
     content: string
     encoding?: 'GSM7' | 'UCS2'
   }) => api.post<{ message: string; session_id: string }>('/send', params)
+}
+
+// Template API
+export const templateApi = {
+  list: () => api.get<{ data: MessageTemplate[] }>('/templates'),
+  get: (id: string) => api.get<MessageTemplate>(`/templates/${id}`),
+  create: (data: CreateTemplateRequest) => api.post<MessageTemplate>('/templates', data),
+  update: (id: string, data: UpdateTemplateRequest) => api.put<MessageTemplate>(`/templates/${id}`, data),
+  delete: (id: string) => api.delete<{ message: string }>(`/templates/${id}`)
+}
+
+// System API
+export const systemApi = {
+  getConfig: () => api.get<SystemConfig>('/system/config'),
+  updateConfig: (data: UpdateSystemConfigRequest) => api.put<{ message: string }>('/system/config', data),
+  checkRedis: () => api.get<{ connected: boolean; error?: string }>('/system/redis')
 }
 
 export default api

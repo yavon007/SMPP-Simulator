@@ -46,6 +46,25 @@ type Stats struct {
 	FailedMessages    int `json:"failed_messages"`
 }
 
+// MessageTemplate represents a predefined message template
+type MessageTemplate struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Content   string    `json:"content"`
+	Encoding  string    `json:"encoding"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// OperationLog represents an operation log entry
+type OperationLog struct {
+	ID          string    `json:"id"`
+	Operation   string    `json:"operation"`   // login, send_message, config_change, data_clear
+	Detail      string    `json:"detail"`
+	Operator    string    `json:"operator"`
+	IPAddress   string    `json:"ip_address"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 // DefaultMockConfig returns default mock configuration
 func DefaultMockConfig() *MockConfig {
 	return &MockConfig{
@@ -54,5 +73,31 @@ func DefaultMockConfig() *MockConfig {
 		ResponseDelay: 0,
 		DeliverReport: false,
 		DeliverDelay:  1000,
+	}
+}
+
+// DefaultMessageTemplates returns default message templates
+func DefaultMessageTemplates() []MessageTemplate {
+	return []MessageTemplate{
+		{
+			Name:     "问候语",
+			Content:  "您好，感谢您的关注！",
+			Encoding: "UCS2",
+		},
+		{
+			Name:     "验证码",
+			Content:  "您的验证码是：{code}，5分钟内有效。",
+			Encoding: "UCS2",
+		},
+		{
+			Name:     "通知模板",
+			Content:  "尊敬的用户，您的订单已发货，单号：{order_id}，请注意查收。",
+			Encoding: "UCS2",
+		},
+		{
+			Name:     "错误消息",
+			Content:  "系统繁忙，请稍后重试。",
+			Encoding: "UCS2",
+		},
 	}
 }
