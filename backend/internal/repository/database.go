@@ -202,3 +202,41 @@ func (d *Database) GetDB() *sql.DB {
 func (d *Database) Type() string {
 	return d.dbType
 }
+
+// Placeholder returns the parameter placeholder for the current database
+// PostgreSQL uses $1, $2, $3... while SQLite/MySQL use ?
+func (d *Database) Placeholder(index int) string {
+	if d.dbType == "postgres" || d.dbType == "postgresql" {
+		return fmt.Sprintf("$%d", index)
+	}
+	return "?"
+}
+
+// Placeholders returns multiple placeholders for the current database
+func (d *Database) Placeholders(count int) []string {
+	placeholders := make([]string, count)
+	for i := 0; i < count; i++ {
+		placeholders[i] = d.Placeholder(i + 1)
+	}
+	return placeholders
+}
+
+// RebindQuery rewrites a query with ? placeholders to use the correct placeholder for the database
+func (d *Database) RebindQuery(query string) string {
+	if d.dbType != "postgres" && d.dbType != "postgresql" {
+		return query
+	}
+
+	// Replace ? with $1, $2, $3...
+	result := ""
+	index := 1
+	for _, ch := range query {
+		if ch == '?' {
+			result += fmt.Sprintf("$%d", index)
+			index++
+		} else {
+			result += string(ch)
+		}
+	}
+	return result
+}

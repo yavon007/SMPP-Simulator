@@ -23,9 +23,9 @@ func (r *MessageRepository) Save(msg *model.Message) error {
 	r.db.mu.Lock()
 	defer r.db.mu.Unlock()
 
-	_, err := r.db.db.Exec(
-		`INSERT INTO messages (id, session_id, message_id, sequence_num, source_addr, dest_addr, content, encoding, status, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	query := r.db.RebindQuery(`INSERT INTO messages (id, session_id, message_id, sequence_num, source_addr, dest_addr, content, encoding, status, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	_, err := r.db.db.Exec(query,
 		msg.ID, msg.SessionID, msg.MessageID, msg.SequenceNum, msg.SourceAddr, msg.DestAddr, msg.Content, msg.Encoding, msg.Status, msg.CreatedAt,
 	)
 	return err
@@ -38,11 +38,9 @@ func (r *MessageRepository) GetByID(id string) (*model.Message, error) {
 
 	msg := &model.Message{}
 	var deliveredAt sql.NullTime
-	err := r.db.db.QueryRow(
-		`SELECT id, session_id, message_id, sequence_num, source_addr, dest_addr, content, encoding, status, created_at, delivered_at
-		 FROM messages WHERE id = ?`,
-		id,
-	).Scan(&msg.ID, &msg.SessionID, &msg.MessageID, &msg.SequenceNum, &msg.SourceAddr, &msg.DestAddr,
+	query := r.db.RebindQuery(`SELECT id, session_id, message_id, sequence_num, source_addr, dest_addr, content, encoding, status, created_at, delivered_at
+		 FROM messages WHERE id = ?`)
+	err := r.db.db.QueryRow(query, id).Scan(&msg.ID, &msg.SessionID, &msg.MessageID, &msg.SequenceNum, &msg.SourceAddr, &msg.DestAddr,
 		&msg.Content, &msg.Encoding, &msg.Status, &msg.CreatedAt, &deliveredAt)
 	if err != nil {
 		return nil, err
@@ -60,11 +58,9 @@ func (r *MessageRepository) GetByMessageID(messageID string) (*model.Message, er
 
 	msg := &model.Message{}
 	var deliveredAt sql.NullTime
-	err := r.db.db.QueryRow(
-		`SELECT id, session_id, message_id, sequence_num, source_addr, dest_addr, content, encoding, status, created_at, delivered_at
-		 FROM messages WHERE message_id = ?`,
-		messageID,
-	).Scan(&msg.ID, &msg.SessionID, &msg.MessageID, &msg.SequenceNum, &msg.SourceAddr, &msg.DestAddr,
+	query := r.db.RebindQuery(`SELECT id, session_id, message_id, sequence_num, source_addr, dest_addr, content, encoding, status, created_at, delivered_at
+		 FROM messages WHERE message_id = ?`)
+	err := r.db.db.QueryRow(query, messageID).Scan(&msg.ID, &msg.SessionID, &msg.MessageID, &msg.SequenceNum, &msg.SourceAddr, &msg.DestAddr,
 		&msg.Content, &msg.Encoding, &msg.Status, &msg.CreatedAt, &deliveredAt)
 	if err != nil {
 		return nil, err
@@ -116,7 +112,6 @@ func (r *MessageRepository) GetList(filter MessageFilter, limit, offset int) ([]
 		args = append(args, "%"+filter.Content+"%")
 	}
 	if filter.StartTime != "" {
-		// 解析前端传来的时间（本地时间格式）并转换为 RFC3339 格式
 		startTime, err := time.ParseInLocation("2006-01-02 15:04:05", filter.StartTime, time.Local)
 		if err == nil {
 			where += " AND created_at >= ?"
@@ -124,7 +119,6 @@ func (r *MessageRepository) GetList(filter MessageFilter, limit, offset int) ([]
 		}
 	}
 	if filter.EndTime != "" {
-		// 解析前端传来的时间（本地时间格式）并转换为 RFC3339 格式
 		endTime, err := time.ParseInLocation("2006-01-02 15:04:05", filter.EndTime, time.Local)
 		if err == nil {
 			where += " AND created_at <= ?"
@@ -134,19 +128,19 @@ func (r *MessageRepository) GetList(filter MessageFilter, limit, offset int) ([]
 
 	// Get total count
 	var total int
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM messages %s", where)
+	countQuery := r.db.RebindQuery(fmt.Sprintf("SELECT COUNT(*) FROM messages %s", where))
 	err := r.db.db.QueryRow(countQuery, args...).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	// Get messages
-	query := fmt.Sprintf(
+	args = append(args, limit, offset)
+	query := r.db.RebindQuery(fmt.Sprintf(
 		`SELECT id, session_id, message_id, sequence_num, source_addr, dest_addr, content, encoding, status, created_at, delivered_at
 		 FROM messages %s ORDER BY created_at DESC LIMIT ? OFFSET ?`,
 		where,
-	)
-	args = append(args, limit, offset)
+	))
 
 	rows, err := r.db.db.Query(query, args...)
 	if err != nil {
@@ -178,14 +172,13 @@ func (r *MessageRepository) UpdateStatus(id string, status string) error {
 
 	if status == "delivered" {
 		now := time.Now()
-		_, err := r.db.db.Exec(
-			`UPDATE messages SET status = ?, delivered_at = ? WHERE id = ?`,
-			status, now, id,
-		)
+		query := r.db.RebindQuery(`UPDATE messages SET status = ?, delivered_at = ? WHERE id = ?`)
+		_, err := r.db.db.Exec(query, status, now, id)
 		return err
 	}
 
-	_, err := r.db.db.Exec(`UPDATE messages SET status = ? WHERE id = ?`, status, id)
+	query := r.db.RebindQuery(`UPDATE messages SET status = ? WHERE id = ?`)
+	_, err := r.db.db.Exec(query, status, id)
 	return err
 }
 
@@ -224,7 +217,8 @@ func (r *MessageRepository) DeleteMessage(id string) error {
 	r.db.mu.Lock()
 	defer r.db.mu.Unlock()
 
-	_, err := r.db.db.Exec(`DELETE FROM messages WHERE id = ?`, id)
+	query := r.db.RebindQuery(`DELETE FROM messages WHERE id = ?`)
+	_, err := r.db.db.Exec(query, id)
 	return err
 }
 
@@ -258,6 +252,7 @@ func (r *MessageRepository) DeleteByIDs(ids []string) (int64, error) {
 	}
 	query += ")"
 
+	query = r.db.RebindQuery(query)
 	result, err := r.db.db.Exec(query, args...)
 	if err != nil {
 		return 0, fmt.Errorf("delete messages by ids: %w", err)
@@ -281,22 +276,26 @@ func (r *MessageRepository) GetStatsBySessionID(sessionID string) (*SessionStats
 
 	stats := &SessionStats{}
 
-	err := r.db.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE session_id = ?`, sessionID).Scan(&stats.Total)
+	query := r.db.RebindQuery(`SELECT COUNT(*) FROM messages WHERE session_id = ?`)
+	err := r.db.db.QueryRow(query, sessionID).Scan(&stats.Total)
 	if err != nil {
 		return nil, fmt.Errorf("get total count for session %s: %w", sessionID, err)
 	}
 
-	err = r.db.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE session_id = ? AND status = 'delivered'`, sessionID).Scan(&stats.Delivered)
+	query = r.db.RebindQuery(`SELECT COUNT(*) FROM messages WHERE session_id = ? AND status = 'delivered'`)
+	err = r.db.db.QueryRow(query, sessionID).Scan(&stats.Delivered)
 	if err != nil {
 		return nil, fmt.Errorf("get delivered count for session %s: %w", sessionID, err)
 	}
 
-	err = r.db.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE session_id = ? AND status = 'failed'`, sessionID).Scan(&stats.Failed)
+	query = r.db.RebindQuery(`SELECT COUNT(*) FROM messages WHERE session_id = ? AND status = 'failed'`)
+	err = r.db.db.QueryRow(query, sessionID).Scan(&stats.Failed)
 	if err != nil {
 		return nil, fmt.Errorf("get failed count for session %s: %w", sessionID, err)
 	}
 
-	err = r.db.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE session_id = ? AND status = 'pending'`, sessionID).Scan(&stats.Pending)
+	query = r.db.RebindQuery(`SELECT COUNT(*) FROM messages WHERE session_id = ? AND status = 'pending'`)
+	err = r.db.db.QueryRow(query, sessionID).Scan(&stats.Pending)
 	if err != nil {
 		return nil, fmt.Errorf("get pending count for session %s: %w", sessionID, err)
 	}
@@ -309,8 +308,8 @@ func (r *MessageRepository) GetRecentBySessionID(sessionID string, limit int) ([
 	r.db.mu.RLock()
 	defer r.db.mu.RUnlock()
 
-	query := `SELECT id, session_id, message_id, sequence_num, source_addr, dest_addr, content, encoding, status, created_at, delivered_at
-		FROM messages WHERE session_id = ? ORDER BY created_at DESC LIMIT ?`
+	query := r.db.RebindQuery(`SELECT id, session_id, message_id, sequence_num, source_addr, dest_addr, content, encoding, status, created_at, delivered_at
+		FROM messages WHERE session_id = ? ORDER BY created_at DESC LIMIT ?`)
 
 	rows, err := r.db.db.Query(query, sessionID, limit)
 	if err != nil {

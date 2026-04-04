@@ -19,9 +19,32 @@ func (r *SessionRepository) Save(session *model.Session) error {
 	r.db.mu.Lock()
 	defer r.db.mu.Unlock()
 
-	_, err := r.db.db.Exec(
-		`INSERT OR REPLACE INTO sessions (id, system_id, bind_type, remote_addr, connected_at, status)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
+	var query string
+	switch r.db.dbType {
+	case "postgres", "postgresql":
+		query = `INSERT INTO sessions (id, system_id, bind_type, remote_addr, connected_at, status)
+		 VALUES ($1, $2, $3, $4, $5, $6)
+		 ON CONFLICT (id) DO UPDATE SET 
+		   system_id = EXCLUDED.system_id,
+		   bind_type = EXCLUDED.bind_type,
+		   remote_addr = EXCLUDED.remote_addr,
+		   connected_at = EXCLUDED.connected_at,
+		   status = EXCLUDED.status`
+	case "mysql":
+		query = `INSERT INTO sessions (id, system_id, bind_type, remote_addr, connected_at, status)
+		 VALUES (?, ?, ?, ?, ?, ?)
+		 ON DUPLICATE KEY UPDATE 
+		   system_id = VALUES(system_id),
+		   bind_type = VALUES(bind_type),
+		   remote_addr = VALUES(remote_addr),
+		   connected_at = VALUES(connected_at),
+		   status = VALUES(status)`
+	default: // sqlite
+		query = `INSERT OR REPLACE INTO sessions (id, system_id, bind_type, remote_addr, connected_at, status)
+		 VALUES (?, ?, ?, ?, ?, ?)`
+	}
+
+	_, err := r.db.db.Exec(query,
 		session.ID, session.SystemID, session.BindType, session.RemoteAddr, session.ConnectedAt, session.Status,
 	)
 	return err
@@ -32,11 +55,11 @@ func (r *SessionRepository) GetByID(id string) (*model.Session, error) {
 	r.db.mu.RLock()
 	defer r.db.mu.RUnlock()
 
+	query := r.db.RebindQuery(`SELECT id, system_id, bind_type, remote_addr, connected_at, status FROM sessions WHERE id = ?`)
 	session := &model.Session{}
-	err := r.db.db.QueryRow(
-		`SELECT id, system_id, bind_type, remote_addr, connected_at, status FROM sessions WHERE id = ?`,
-		id,
-	).Scan(&session.ID, &session.SystemID, &session.BindType, &session.RemoteAddr, &session.ConnectedAt, &session.Status)
+	err := r.db.db.QueryRow(query, id).Scan(
+		&session.ID, &session.SystemID, &session.BindType, &session.RemoteAddr, &session.ConnectedAt, &session.Status,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -48,9 +71,8 @@ func (r *SessionRepository) GetAll() ([]model.Session, error) {
 	r.db.mu.RLock()
 	defer r.db.mu.RUnlock()
 
-	rows, err := r.db.db.Query(
-		`SELECT id, system_id, bind_type, remote_addr, connected_at, status FROM sessions ORDER BY connected_at DESC`,
-	)
+	query := `SELECT id, system_id, bind_type, remote_addr, connected_at, status FROM sessions ORDER BY connected_at DESC`
+	rows, err := r.db.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +94,8 @@ func (r *SessionRepository) UpdateStatus(id string, status string) error {
 	r.db.mu.Lock()
 	defer r.db.mu.Unlock()
 
-	_, err := r.db.db.Exec(`UPDATE sessions SET status = ? WHERE id = ?`, status, id)
+	query := r.db.RebindQuery(`UPDATE sessions SET status = ? WHERE id = ?`)
+	_, err := r.db.db.Exec(query, status, id)
 	return err
 }
 
@@ -81,7 +104,8 @@ func (r *SessionRepository) Delete(id string) error {
 	r.db.mu.Lock()
 	defer r.db.mu.Unlock()
 
-	_, err := r.db.db.Exec(`DELETE FROM sessions WHERE id = ?`, id)
+	query := r.db.RebindQuery(`DELETE FROM sessions WHERE id = ?`)
+	_, err := r.db.db.Exec(query, id)
 	return err
 }
 
