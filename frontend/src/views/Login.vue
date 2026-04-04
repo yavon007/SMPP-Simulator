@@ -131,10 +131,11 @@ const handleLogin = async () => {
 }
 
 .login-container {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px var(--shadow-color);
   padding: 40px 32px;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .login-header {
@@ -151,13 +152,13 @@ const handleLogin = async () => {
 .login-header h1 {
   font-size: 24px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text-color);
   margin-bottom: 8px;
 }
 
 .login-header p {
   font-size: 14px;
-  color: #909399;
+  color: var(--text-secondary);
 }
 
 .login-form {
@@ -184,12 +185,12 @@ const handleLogin = async () => {
   margin-top: 24px;
   text-align: center;
   padding-top: 20px;
-  border-top: 1px solid #EBEEF5;
+  border-top: 1px solid var(--border-color);
 }
 
 .login-footer p {
   font-size: 12px;
-  color: #909399;
+  color: var(--text-secondary);
   margin: 4px 0;
 }
 
