@@ -81,6 +81,7 @@ type MessageFilter struct {
 	Status     string
 	SourceAddr string
 	DestAddr   string
+	Content    string
 	StartTime  string
 	EndTime    string
 }
@@ -109,6 +110,10 @@ func (r *MessageRepository) GetList(filter MessageFilter, limit, offset int) ([]
 	if filter.DestAddr != "" {
 		where += " AND dest_addr LIKE ?"
 		args = append(args, "%"+filter.DestAddr+"%")
+	}
+	if filter.Content != "" {
+		where += " AND content LIKE ?"
+		args = append(args, "%"+filter.Content+"%")
 	}
 	if filter.StartTime != "" {
 		// 解析前端传来的时间（本地时间格式）并转换为 RFC3339 格式

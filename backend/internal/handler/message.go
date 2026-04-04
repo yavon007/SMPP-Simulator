@@ -27,6 +27,7 @@ func (h *MessageHandler) List(c *gin.Context) {
 		Status:     c.Query("status"),
 		SourceAddr: c.Query("source_addr"),
 		DestAddr:   c.Query("dest_addr"),
+		Content:    c.Query("content"),
 		StartTime:  c.Query("start_time"),
 		EndTime:    c.Query("end_time"),
 	}

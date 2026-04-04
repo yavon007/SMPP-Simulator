@@ -11,6 +11,9 @@
         <el-form-item label="接收方">
           <el-input v-model="filters.dest_addr" placeholder="接收方号码" clearable style="width: 140px" />
         </el-form-item>
+        <el-form-item label="消息内容">
+          <el-input v-model="filters.content" placeholder="搜索消息内容" clearable style="width: 180px" />
+        </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="filters.status" placeholder="全部" clearable style="width: 100px">
             <el-option label="全部" value="" />
@@ -139,7 +142,8 @@ const loading = computed(() => messageStore.loading)
 const filters = ref({
   status: '',
   source_addr: '',
-  dest_addr: ''
+  dest_addr: '',
+  content: ''
 })
 
 const dateRange = ref<[string, string] | null>(null)
@@ -181,7 +185,8 @@ const getFilterParams = () => {
   const params: Record<string, string> = {
     status: filters.value.status,
     source_addr: filters.value.source_addr,
-    dest_addr: filters.value.dest_addr
+    dest_addr: filters.value.dest_addr,
+    content: filters.value.content
   }
   if (dateRange.value && dateRange.value.length === 2) {
     params.start_time = dateRange.value[0]
@@ -195,7 +200,7 @@ const handleFilter = () => {
 }
 
 const handleReset = () => {
-  filters.value = { status: '', source_addr: '', dest_addr: '' }
+  filters.value = { status: '', source_addr: '', dest_addr: '', content: '' }
   dateRange.value = null
   messageStore.fetchMessages({ page: 1 })
 }
@@ -240,6 +245,7 @@ useWebSocketEvents({
     if (filters.value.status && filters.value.status !== msg.status) return
     if (filters.value.source_addr && !msg.source_addr.includes(filters.value.source_addr)) return
     if (filters.value.dest_addr && !msg.dest_addr.includes(filters.value.dest_addr)) return
+    if (filters.value.content && !msg.content.includes(filters.value.content)) return
     messageStore.addMessage(msg)
   },
   onMessageDelivered: (messageId: string) => {
