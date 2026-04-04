@@ -76,6 +76,10 @@
             <el-icon><Setting /></el-icon>
             <span>模拟配置</span>
           </el-menu-item>
+          <el-menu-item v-if="authStore.isAuthenticated" index="/system">
+            <el-icon><Tools /></el-icon>
+            <span>系统配置</span>
+          </el-menu-item>
         </el-menu>
         <div class="sidebar-footer" v-if="!isMobile">
           <!-- 主题切换按钮 -->
@@ -110,7 +114,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { DataLine, Connection, Message, Setting, Promotion, User, Expand, Cellphone, Sunny, Moon } from '@element-plus/icons-vue'
+import { DataLine, Connection, Message, Setting, Promotion, User, Expand, Cellphone, Sunny, Moon, Tools } from '@element-plus/icons-vue'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import { wsClient } from '@/utils/websocket'
 import { useAuthStore } from '@/stores/auth'
