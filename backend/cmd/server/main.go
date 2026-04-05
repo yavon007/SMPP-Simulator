@@ -51,6 +51,9 @@ func main() {
 	// Create SMPP server
 	smppServer := smpp.NewServer(cfg.SMPPHost, cfg.SMPPPort, messageRepo)
 
+	// Create SMPP client for outbound connections
+	smppClient := smpp.NewClient()
+
 	// Load mock config
 	mockConfig, err := mockConfigRepo.Get()
 	if err != nil {
@@ -83,6 +86,7 @@ func main() {
 	wsHandler := handler.NewWebSocketHandler(wsHub, cfg.JWTSecret, []string{cfg.CORSOrigins})
 	systemHandler := handler.NewSystemHandler(cfg, "")
 	templateHandler := handler.NewTemplateHandler(templateRepo)
+	outboundHandler := handler.NewOutboundHandler(smppClient)
 
 	// Setup router
 	router := SetupRouter(&RouterConfig{
@@ -100,6 +104,7 @@ func main() {
 		WsHandler:       wsHandler,
 		SystemHandler:   systemHandler,
 		TemplateHandler: templateHandler,
+		OutboundHandler: outboundHandler,
 	})
 
 	// Start HTTP server

@@ -166,3 +166,31 @@ export interface UpdateTemplateRequest {
   content: string
   encoding?: string
 }
+
+// OutboundSession interface (for outbound SMPP connections)
+export interface OutboundSession {
+  id: string
+  system_id: string
+  bind_type: string
+  remote_addr: string
+  connected_at: string
+  status: string
+  error?: string
+}
+
+// ConnectRequest interface
+export interface ConnectRequest {
+  host: string
+  port: string
+  system_id: string
+  password?: string
+  bind_type?: string // transmitter, receiver, transceiver
+}
+
+// OutboundSendMessageRequest interface
+export interface OutboundSendMessageRequest {
+  source_addr: string
+  dest_addr: string
+  content: string
+  encoding?: 'GSM7' | 'UCS2'
+}

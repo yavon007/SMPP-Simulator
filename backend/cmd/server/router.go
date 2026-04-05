@@ -28,6 +28,7 @@ type RouterConfig struct {
 	WsHandler       *handler.WebSocketHandler
 	SystemHandler   *handler.SystemHandler
 	TemplateHandler *handler.TemplateHandler
+	OutboundHandler *handler.OutboundHandler
 }
 
 // SetupRouter creates and configures the Gin router
@@ -102,6 +103,11 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 		protected.DELETE("/templates/:id", cfg.TemplateHandler.Delete)
 		// Rate limit status
 		protected.GET("/stats/rate-limit", cfg.StatsHandler.GetRateLimit)
+		// Outbound SMPP connections
+		protected.GET("/outbound", cfg.OutboundHandler.List)
+		protected.POST("/outbound/connect", cfg.OutboundHandler.Connect)
+		protected.DELETE("/outbound/:id", cfg.OutboundHandler.Delete)
+		protected.POST("/outbound/:id/send", cfg.OutboundHandler.SendMessage)
 	}
 
 	// WebSocket

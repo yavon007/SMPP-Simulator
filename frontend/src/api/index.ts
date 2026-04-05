@@ -2,7 +2,7 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import router from '@/router'
-import type { Session, Message, Stats, MockConfig, Receiver, SessionDetail, MessageTemplate, CreateTemplateRequest, UpdateTemplateRequest, SystemConfig, UpdateSystemConfigRequest, RateLimitStatus } from '@/types'
+import type { Session, Message, Stats, MockConfig, Receiver, SessionDetail, MessageTemplate, CreateTemplateRequest, UpdateTemplateRequest, SystemConfig, UpdateSystemConfigRequest, RateLimitStatus, OutboundSession, ConnectRequest, OutboundSendMessageRequest } from '@/types'
 
 const api = axios.create({
   baseURL: '/api',
@@ -135,6 +135,15 @@ export const systemApi = {
   getConfig: () => api.get<SystemConfig>('/system/config'),
   updateConfig: (data: UpdateSystemConfigRequest) => api.put<{ message: string }>('/system/config', data),
   checkRedis: () => api.get<{ connected: boolean; error?: string }>('/system/redis')
+}
+
+// Outbound API (for active SMPP connections)
+export const outboundApi = {
+  list: () => api.get<{ data: OutboundSession[] }>('/outbound'),
+  connect: (params: ConnectRequest) => api.post<{ message: string; data: OutboundSession }>('/outbound/connect', params),
+  disconnect: (id: string) => api.delete<{ message: string }>(`/outbound/${id}`),
+  sendMessage: (id: string, params: OutboundSendMessageRequest) =>
+    api.post<{ message: string; message_id: string }>(`/outbound/${id}/send`, params)
 }
 
 export default api

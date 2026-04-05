@@ -82,6 +82,7 @@ backend/
 │   │   ├── mock.go             # Mock configuration
 │   │   ├── data.go             # Data management (clear data)
 │   │   ├── send_message.go     # Admin send message
+│   │   ├── outbound.go         # Outbound SMPP connection handler
 │   │   └── websocket.go        # WebSocket hub
 │   ├── middleware/             # HTTP middleware
 │   │   ├── auth.go             # JWT authentication
@@ -89,7 +90,8 @@ backend/
 │   ├── model/                  # Data models
 │   ├── repository/             # SQLite data access
 │   └── smpp/                   # SMPP protocol implementation
-│       ├── server.go           # TCP server
+│       ├── server.go           # TCP server (passive mode)
+│       ├── client.go           # SMPP client (active mode)
 │       ├── pdu.go              # PDU encoding/decoding
 │       └── session.go          # Session state
 └── pkg/
@@ -97,7 +99,8 @@ backend/
 ```
 
 **Key Components:**
-- `smpp.Server`: TCP server listening on port 2775, handles SMPP protocol
+- `smpp.Server`: TCP server listening on port 2775, handles incoming SMPP connections
+- `smpp.Client`: SMPP client for initiating outbound connections to remote SMSCs
 - `smpp.PDU`: Protocol Data Unit encoding/decoding for SMPP commands
 - `repository.*`: SQLite-based data persistence for sessions and messages
 - `middleware.AuthMiddleware`: JWT authentication for protected routes
@@ -182,6 +185,10 @@ login_rate_limit: 5
 | DELETE | /api/data/all | Delete all messages and sessions |
 | GET | /api/send/receivers | List sessions that can receive messages |
 | POST | /api/send | Send message to a connected session |
+| GET | /api/outbound | List outbound SMPP connections |
+| POST | /api/outbound/connect | Connect to remote SMSC |
+| DELETE | /api/outbound/:id | Disconnect outbound session |
+| POST | /api/outbound/:id/send | Send message via outbound session |
 
 ### Health Check
 
@@ -206,6 +213,31 @@ Request body for `POST /api/send`:
 ```json
 {
   "session_id": "session-uuid",
+  "source_addr": "10086",
+  "dest_addr": "13800138000",
+  "content": "Message content",
+  "encoding": "GSM7" // or "UCS2"
+}
+```
+
+### Outbound SMPP Connections
+
+Connect to a remote SMSC:
+```json
+// POST /api/outbound/connect
+{
+  "host": "192.168.1.100",
+  "port": "2775",
+  "system_id": "username",
+  "password": "password",
+  "bind_type": "transceiver" // transmitter, receiver, or transceiver
+}
+```
+
+Send message via outbound connection:
+```json
+// POST /api/outbound/:id/send
+{
   "source_addr": "10086",
   "dest_addr": "13800138000",
   "content": "Message content",

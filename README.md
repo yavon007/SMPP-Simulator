@@ -6,6 +6,7 @@ SMPP 短信模拟器，为短信平台提供 SMPP 协议功能测试环境。
 
 ### 核心功能
 - SMPP 协议服务端（TCP 2775 端口）
+- **SMPP 客户端** - 主动连接外部 SMSC 发送短信
 - REST API 管理接口
 - WebSocket 实时推送
 - 用户认证与权限控制
@@ -260,6 +261,10 @@ Authorization: Bearer <token>
 | DELETE | /api/data/all | 清空所有数据 |
 | GET | /api/send/receivers | 获取可接收消息的会话 |
 | POST | /api/send | 发送消息到会话 |
+| GET | /api/outbound | 获取主动连接列表 |
+| POST | /api/outbound/connect | 主动连接 SMSC |
+| DELETE | /api/outbound/:id | 断开主动连接 |
+| POST | /api/outbound/:id/send | 通过主动连接发送消息 |
 | GET | /api/templates | 获取消息模板列表 |
 | POST | /api/templates | 创建消息模板 |
 | PUT | /api/templates/:id | 更新消息模板 |
@@ -286,7 +291,9 @@ Authorization: Bearer <token>
 
 ### 发送消息
 
-请求体示例（`POST /api/send`）：
+#### 下发消息（deliver_sm）
+
+向已连接的客户端发送消息（`POST /api/send`）：
 
 ```json
 {
@@ -299,6 +306,35 @@ Authorization: Bearer <token>
 ```
 
 `encoding` 可选值：`GSM7`（默认）或 `UCS2`
+
+#### 主动发送（submit_sm）
+
+主动连接外部 SMSC 发送短信：
+
+**1. 连接 SMSC（`POST /api/outbound/connect`）：**
+
+```json
+{
+  "host": "192.168.1.100",
+  "port": "2775",
+  "system_id": "username",
+  "password": "password",
+  "bind_type": "transceiver"
+}
+```
+
+`bind_type` 可选值：`transmitter`（只能发）、`receiver`（只能收）、`transceiver`（可收发）
+
+**2. 发送消息（`POST /api/outbound/:id/send`）：**
+
+```json
+{
+  "source_addr": "10086",
+  "dest_addr": "13800138000",
+  "content": "消息内容",
+  "encoding": "GSM7"
+}
+```
 
 ### 健康检查
 
