@@ -28,6 +28,8 @@ tags:
     description: Data management
   - name: Send
     description: Send messages to sessions
+  - name: Outbound
+    description: Outbound SMPP connections
 
 paths:
   /api/auth/login:
@@ -391,6 +393,132 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/outbound:
+    get:
+      tags:
+        - Outbound
+      summary: List outbound connections
+      description: Get all active outbound SMPP connections
+      operationId: listOutbound
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of outbound connections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutboundSessionListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/outbound/connect:
+    post:
+      tags:
+        - Outbound
+      summary: Connect to SMSC
+      description: Initiate an outbound SMPP connection to a remote SMSC
+      operationId: connectOutbound
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectRequest'
+      responses:
+        '200':
+          description: Connected successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectResponse'
+        '400':
+          description: Connection failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/outbound/{id}:
+    delete:
+      tags:
+        - Outbound
+      summary: Disconnect outbound session
+      description: Disconnect an outbound SMPP connection
+      operationId: disconnectOutbound
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Outbound session ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session disconnected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/outbound/{id}/send:
+    post:
+      tags:
+        - Outbound
+      summary: Send message via outbound connection
+      description: Send a message (submit_sm) through an outbound SMPP connection
+      operationId: sendOutboundMessage
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Outbound session ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OutboundSendMessageRequest'
+      responses:
+        '200':
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutboundSendMessageResponse'
+        '400':
+          description: Failed to send message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/data/messages:
     delete:
       tags:
@@ -724,6 +852,111 @@ components:
           type: string
         session_id:
           type: string
+
+    OutboundSession:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Session ID
+        system_id:
+          type: string
+          description: SMPP system ID
+        bind_type:
+          type: string
+          enum: [transmitter, receiver, transceiver]
+        remote_addr:
+          type: string
+          description: Remote SMSC address
+        connected_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [connecting, active, closed, error]
+        error:
+          type: string
+          description: Error message if status is error
+
+    OutboundSessionListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OutboundSession'
+
+    ConnectRequest:
+      type: object
+      required:
+        - host
+        - port
+        - system_id
+      properties:
+        host:
+          type: string
+          description: SMSC host address
+          example: "192.168.1.100"
+        port:
+          type: string
+          description: SMSC port
+          example: "2775"
+        system_id:
+          type: string
+          description: SMPP system ID
+          example: "username"
+        password:
+          type: string
+          description: SMPP password
+        bind_type:
+          type: string
+          enum: [transmitter, receiver, transceiver]
+          default: transceiver
+          description: Bind type (transmitter=send only, receiver=receive only, transceiver=both)
+
+    ConnectResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/OutboundSession'
+
+    OutboundSendMessageRequest:
+      type: object
+      required:
+        - source_addr
+        - dest_addr
+        - content
+      properties:
+        source_addr:
+          type: string
+          description: Source address
+          example: "10086"
+        dest_addr:
+          type: string
+          description: Destination address
+          example: "13800138000"
+        content:
+          type: string
+          description: Message content
+        encoding:
+          type: string
+          enum: [GSM7, UCS2]
+          default: GSM7
+
+    OutboundSendMessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        message_id:
+          type: string
+          description: SMSC message ID
+        session_id:
+          type: string
+        char_count:
+          type: integer
 
     ErrorResponse:
       type: object
