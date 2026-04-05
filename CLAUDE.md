@@ -65,6 +65,32 @@ docker-compose down
 docker-compose up -d --build
 ```
 
+### E2E Testing (端到端测试)
+
+**重要：开发完成后，AI 应自动运行这些测试来验证功能。**
+
+```bash
+# API 端到端测试 (HTTP API)
+./scripts/test-e2e.sh
+
+# SMPP 完整测试 (协议 + API)
+./scripts/test-smpp.sh
+
+# SMPP 客户端工具 (手动测试)
+python3 scripts/smpp_client.py --host 127.0.0.1 --port 2775 test
+```
+
+**测试覆盖：**
+- `test-e2e.sh`: 认证、Session、消息、模板、Mock 配置、系统配置等 API
+- `test-smpp.sh`: SMPP 绑定、发送消息、消息存储验证、状态更新
+
+**开发流程建议：**
+1. 编写代码
+2. 运行 `./scripts/test-e2e.sh` 验证 API
+3. 运行 `./scripts/test-smpp.sh` 验证 SMPP 协议
+4. 根据错误日志修复问题
+5. 重复直到所有测试通过
+
 ## Architecture
 
 ### Backend Structure
