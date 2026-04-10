@@ -7,9 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 SMPP Simulator - A frontend-backend separated application for testing SMS platform SMPP protocol functionality. Provides a mock SMPP server for development and testing purposes.
 
 **Tech Stack:**
-- Backend: Go + Gin + SQLite + JWT
-- Frontend: Vue 3 + TypeScript + Element Plus + Pinia
+- Backend: Go + Gin + SQLite/PostgreSQL/MySQL + JWT
+- Frontend: Vue 3 + TypeScript + Element Plus + Pinia + Vue I18n
 - Build: Vite, Docker
+- Cache: Redis (optional)
 
 ## Common Commands
 
@@ -109,12 +110,16 @@ backend/
 │   │   ├── data.go             # Data management (clear data)
 │   │   ├── send_message.go     # Admin send message
 │   │   ├── outbound.go         # Outbound SMPP connection handler
+│   │   ├── template.go         # Message templates CRUD
+│   │   ├── system.go           # System configuration (runtime)
+│   │   ├── stats.go            # Statistics and rate limit status
 │   │   └── websocket.go        # WebSocket hub
+│   ├── cache/                  # Redis cache (optional)
 │   ├── middleware/             # HTTP middleware
 │   │   ├── auth.go             # JWT authentication
 │   │   └── ratelimit.go        # Rate limiting for login
 │   ├── model/                  # Data models
-│   ├── repository/             # SQLite data access
+│   ├── repository/             # Database access (SQLite/PostgreSQL/MySQL)
 │   └── smpp/                   # SMPP protocol implementation
 │       ├── server.go           # TCP server (passive mode)
 │       ├── client.go           # SMPP client (active mode)
@@ -128,7 +133,8 @@ backend/
 - `smpp.Server`: TCP server listening on port 2775, handles incoming SMPP connections
 - `smpp.Client`: SMPP client for initiating outbound connections to remote SMSCs
 - `smpp.PDU`: Protocol Data Unit encoding/decoding for SMPP commands
-- `repository.*`: SQLite-based data persistence for sessions and messages
+- `repository.*`: SQLite/PostgreSQL/MySQL data persistence for sessions and messages
+- `cache.RedisCache`: Optional Redis caching layer
 - `middleware.AuthMiddleware`: JWT authentication for protected routes
 
 ### Frontend Structure
@@ -142,7 +148,10 @@ frontend/
 │   │   ├── Sessions.vue        # SMPP connections (protected)
 │   │   ├── Messages.vue        # Message list with filters (public)
 │   │   ├── Config.vue          # Mock configuration (protected)
+│   │   ├── Send.vue            # Send message to sessions (protected)
+│   │   ├── System.vue          # System configuration (protected)
 │   │   └── Login.vue           # Login page
+│   ├── locales/                # i18n translation files (zh/en)
 │   ├── stores/                 # Pinia state management
 │   │   ├── index.ts            # Session, message, stats, config stores
 │   │   └── auth.ts             # Authentication store
@@ -161,7 +170,20 @@ smpp_host: "0.0.0.0"
 smpp_port: "2775"
 http_host: "0.0.0.0"
 http_port: "8080"
+
+# Database (SQLite default, PostgreSQL/MySQL for production)
+db_type: "sqlite"           # sqlite / postgres / mysql
 db_path: "./smpp.db"
+# db_host: "localhost"
+# db_port: 5432
+# db_name: "smpp"
+# db_user: "smpp"
+# db_password: "password"
+
+# Redis (optional, for caching)
+# redis_host: "localhost"
+# redis_port: 6379
+
 admin_password: "admin123"
 jwt_secret: "your-secret-key"
 jwt_expiry: 24
@@ -176,7 +198,15 @@ login_rate_limit: 5
 | `SMPP_PORT` | 2775 | SMPP server port |
 | `HTTP_HOST` | 0.0.0.0 | HTTP API host |
 | `HTTP_PORT` | 8080 | HTTP API port |
+| `DB_TYPE` | sqlite | Database type (sqlite/postgres/mysql) |
 | `DB_PATH` | ./smpp.db | SQLite database path |
+| `DB_HOST` | localhost | Database host (postgres/mysql) |
+| `DB_PORT` | 5432 | Database port (postgres/mysql) |
+| `DB_NAME` | smpp | Database name (postgres/mysql) |
+| `DB_USER` | smpp | Database user (postgres/mysql) |
+| `DB_PASSWORD` | - | Database password (postgres/mysql) |
+| `REDIS_HOST` | - | Redis host (optional) |
+| `REDIS_PORT` | 6379 | Redis port |
 | `ADMIN_PASSWORD` | admin123 | Admin login password |
 | `JWT_SECRET` | smpp-simulator-secret-key | JWT signing key |
 | `JWT_EXPIRY` | 24 | Token expiry (hours) |
@@ -201,7 +231,9 @@ login_rate_limit: 5
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /api/sessions | List SMPP connections |
+| GET | /api/sessions/:id/stats | Get message stats for a session |
 | DELETE | /api/sessions/:id | Disconnect a session |
+| DELETE | /api/messages/batch | Batch delete messages |
 | POST | /api/messages/:id/deliver | Mark message as delivered |
 | POST | /api/messages/:id/fail | Mark message as failed |
 | GET | /api/mock/config | Get mock configuration |
@@ -215,6 +247,13 @@ login_rate_limit: 5
 | POST | /api/outbound/connect | Connect to remote SMSC |
 | DELETE | /api/outbound/:id | Disconnect outbound session |
 | POST | /api/outbound/:id/send | Send message via outbound session |
+| GET | /api/templates | List message templates |
+| POST | /api/templates | Create message template |
+| PUT | /api/templates/:id | Update message template |
+| DELETE | /api/templates/:id | Delete message template |
+| GET | /api/system/config | Get system configuration |
+| PUT | /api/system/config | Update system configuration |
+| GET | /api/stats/rate-limit | Get login rate limit status |
 
 ### Health Check
 
@@ -292,7 +331,9 @@ Send message via outbound connection:
 | Dashboard | ✅ | ✅ |
 | Messages | ✅ | ✅ |
 | Sessions | ❌ | ✅ |
+| Send | ❌ | ✅ |
 | Config | ❌ | ✅ |
+| System | ❌ | ✅ |
 
 ### Default Credentials
 - Username: `admin`
@@ -320,9 +361,11 @@ Default port: 2775
 - SMPP server accepts any system_id/password for bind requests
 - Mock configuration controls auto-response behavior and delivery reports
 - SQLite uses WAL mode for better concurrent access
+- PostgreSQL/MySQL recommended for production deployments
 - Frontend dev server proxies `/api` and `/ws` to backend
 - WebSocket uses heartbeat (30s) to prevent connection timeout
 - Auto delivery report skips if message status was manually changed
+- i18n: Frontend supports Chinese/English via Vue I18n (locales in `src/locales/`)
 
 ## Security Features
 
