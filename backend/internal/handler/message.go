@@ -13,11 +13,13 @@ import (
 
 	"smpp-simulator/internal/model"
 	"smpp-simulator/internal/repository"
+	"smpp-simulator/internal/smpp"
 )
 
 // MessageHandler handles message-related requests
 type MessageHandler struct {
-	repo *repository.MessageRepository
+	repo                *repository.MessageRepository
+	deliveryReportSender smpp.DeliveryReportSender
 }
 
 // BatchDeleteRequest represents the request body for batch delete
@@ -26,8 +28,11 @@ type BatchDeleteRequest struct {
 }
 
 // NewMessageHandler creates a new message handler
-func NewMessageHandler(repo *repository.MessageRepository) *MessageHandler {
-	return &MessageHandler{repo: repo}
+func NewMessageHandler(repo *repository.MessageRepository, sender smpp.DeliveryReportSender) *MessageHandler {
+	return &MessageHandler{
+		repo:                 repo,
+		deliveryReportSender: sender,
+	}
 }
 
 // List returns messages with pagination and filters
@@ -103,6 +108,14 @@ func (h *MessageHandler) updateStatus(c *gin.Context, status string) {
 	if err := h.repo.UpdateStatus(id, status); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	// Send delivery report to SMPP client if marking as delivered
+	if status == "delivered" && h.deliveryReportSender != nil {
+		if err := h.deliveryReportSender.SendDeliveryReport(msg); err != nil {
+			// Log error but don't fail the request - status update succeeded
+			fmt.Printf("Failed to send delivery report: %v\n", err)
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{

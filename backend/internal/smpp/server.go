@@ -36,6 +36,11 @@ type MessageStore interface {
 	UpdateStatus(id string, status string) error
 }
 
+// DeliveryReportSender interface for sending delivery reports
+type DeliveryReportSender interface {
+	SendDeliveryReport(msg *model.Message) error
+}
+
 // EventHandler interface for events
 type EventHandler interface {
 	OnSessionConnect(session *model.Session)
@@ -415,6 +420,47 @@ func (s *Server) GetSessions() []*SessionState {
 // GetReceivers returns all sessions that can receive messages
 func (s *Server) GetReceivers() []*SessionState {
 	return s.sessions.GetReceivers()
+}
+
+// SendDeliveryReport sends a delivery report to the session that sent the message
+func (s *Server) SendDeliveryReport(msg *model.Message) error {
+	session := s.sessions.Get(msg.SessionID)
+	if session == nil {
+		return fmt.Errorf("session not found: %s", msg.SessionID)
+	}
+
+	// Only send deliver_sm if session is a receiver or transceiver
+	if session.BindType != "receiver" && session.BindType != "transceiver" {
+		return fmt.Errorf("session %s cannot receive delivery reports (bind_type: %s)", msg.SessionID, session.BindType)
+	}
+
+	// Build delivery report
+	now := time.Now().Format("060102150405") // YYMMDDhhmmss
+	shortMsg := fmt.Sprintf("id:%s sub:001 dlvrd:001 submit date:%s done date:%s stat:DELIVRD err:000",
+		msg.MessageID, now, now)
+
+	params := &DeliverSMParams{
+		SourceAddrTon:     0,
+		SourceAddrNpi:     1,
+		SourceAddr:        msg.DestAddr,
+		DestAddrTon:       0,
+		DestAddrNpi:       1,
+		DestAddr:          msg.SourceAddr,
+		ESMClass:          0x04, // Delivery report
+		DataCoding:        0,
+		SMLength:          byte(len(shortMsg)),
+		ShortMessage:      shortMsg,
+	}
+
+	seqNum := session.NextSequenceNum()
+	deliverPDU := EncodeDeliverSM(params, seqNum)
+
+	if _, err := session.Conn.Write(deliverPDU); err != nil {
+		return fmt.Errorf("failed to send deliver_sm: %w", err)
+	}
+
+	log.Printf("Sent delivery report to %s for message %s", session.RemoteAddr, msg.MessageID)
+	return nil
 }
 
 // SendMessageParams represents parameters for sending a message

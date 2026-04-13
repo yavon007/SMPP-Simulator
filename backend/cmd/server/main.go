@@ -77,7 +77,7 @@ func main() {
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(cfg.AdminPassword, cfg.JWTSecret, cfg.JWTExpiry)
 	sessionHandler := handler.NewSessionHandler(smppServer, messageRepo)
-	messageHandler := handler.NewMessageHandler(messageRepo)
+	messageHandler := handler.NewMessageHandler(messageRepo, smppServer)
 	loginLimiter := middleware.NewRateLimiter(cfg.LoginRateLimit, time.Minute)
 	statsHandler := handler.NewStatsHandler(messageRepo, smppServer, loginLimiter)
 	mockHandler := handler.NewMockHandler(mockConfigRepo, smppServer)
