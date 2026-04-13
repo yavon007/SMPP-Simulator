@@ -13,13 +13,42 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 HTTP_PORT="18080"
 SMPP_PORT="12775"
 ADMIN_PASSWORD="admin123"
-DB_PATH="/tmp/smpp_e2e_$(date +%s).db"
 
-# Go 环境变量
-export PATH=$PATH:/usr/local/go/bin
-export GOPATH=/root/go
-export GOCACHE=/tmp/go-cache
-export GOMODCACHE=/root/go/pkg/mod
+# 检测 Python 命令 (Windows 上 python3 可能是微软商店的占位符，需要实际测试)
+detect_python() {
+    for cmd in python3 python; do
+        if command -v "$cmd" &> /dev/null; then
+            # 实际测试 Python 是否可用（排除微软商店占位符）
+            if "$cmd" --version &> /dev/null; then
+                echo "$cmd"
+                return 0
+            fi
+        fi
+    done
+    echo "Error: Python not found"
+    return 1
+}
+
+PYTHON_CMD=$(detect_python)
+if [ -z "$PYTHON_CMD" ] || [ "$PYTHON_CMD" = "Error: Python not found" ]; then
+    echo "Error: Python not found"
+    exit 1
+fi
+
+# Docker 容器配置
+POSTGRES_CONTAINER="smpp-test-postgres"
+REDIS_CONTAINER="smpp-test-redis"
+POSTGRES_PORT="15432"
+REDIS_PORT="16379"
+POSTGRES_USER="smpp"
+POSTGRES_PASSWORD="smpp_test"
+POSTGRES_DB="smpp_test"
+
+# Go 环境变量 (自动检测，仅在未设置时使用默认值)
+export PATH="${PATH}:/usr/local/go/bin"
+export GOPATH="${GOPATH:-$HOME/go}"
+export GOCACHE="${GOCACHE:-/tmp/go-cache}"
+export GOMODCACHE="${GOMODCACHE:-$HOME/go/pkg/mod}"
 
 # 颜色
 RED='\033[0;31m'
@@ -37,10 +66,56 @@ log_step() { echo -e "${YELLOW}[STEP]${NC} $1"; }
 log_section() { echo -e "\n${BLUE}========== $1 ==========${NC}"; }
 
 cleanup() {
+    # 停止后端服务
     [ ! -z "$BACKEND_PID" ] && kill $BACKEND_PID 2>/dev/null || true
-    rm -f "$DB_PATH" 2>/dev/null || true
+    # 清理 Docker 容器
+    docker rm -f $POSTGRES_CONTAINER 2>/dev/null || true
+    docker rm -f $REDIS_CONTAINER 2>/dev/null || true
 }
 trap cleanup EXIT
+
+# 启动 PostgreSQL 容器
+start_postgres() {
+    log_step "启动 PostgreSQL 容器..."
+    docker run -d \
+        --name $POSTGRES_CONTAINER \
+        -e POSTGRES_USER=$POSTGRES_USER \
+        -e POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+        -e POSTGRES_DB=$POSTGRES_DB \
+        -p $POSTGRES_PORT:5432 \
+        postgres:16-alpine >/dev/null
+
+    # 等待 PostgreSQL 启动
+    for i in $(seq 1 30); do
+        if docker exec $POSTGRES_CONTAINER pg_isready -U $POSTGRES_USER -d $POSTGRES_DB >/dev/null 2>&1; then
+            log_info "PostgreSQL 已就绪"
+            return 0
+        fi
+        sleep 1
+    done
+    log_error "PostgreSQL 启动超时"
+    return 1
+}
+
+# 启动 Redis 容器
+start_redis() {
+    log_step "启动 Redis 容器..."
+    docker run -d \
+        --name $REDIS_CONTAINER \
+        -p $REDIS_PORT:6379 \
+        redis:7-alpine >/dev/null
+
+    # 等待 Redis 启动
+    for i in $(seq 1 15); do
+        if docker exec $REDIS_CONTAINER redis-cli ping 2>/dev/null | grep -q PONG; then
+            log_info "Redis 已就绪"
+            return 0
+        fi
+        sleep 1
+    done
+    log_error "Redis 启动超时"
+    return 1
+}
 
 wait_http() {
     for i in $(seq 1 30); do
@@ -65,12 +140,16 @@ count_messages() {
 test_smpp() {
     local description=$1
     shift
-    if python3 "$SCRIPT_DIR/smpp_client.py" "$@" >/dev/null 2>&1; then
+    local output
+    output=$($PYTHON_CMD "$SCRIPT_DIR/smpp_client.py" "$@" 2>&1)
+    local exit_code=$?
+    if [ $exit_code -eq 0 ]; then
         log_info "✓ $description"
         TESTS_PASSED=$((TESTS_PASSED + 1))
         return 0
     else
         log_error "✗ $description"
+        echo "    Output: $output"
         TESTS_FAILED=$((TESTS_FAILED + 1))
         return 1
     fi
@@ -80,9 +159,24 @@ echo "============================================"
 echo "  SMPP-Simulator 完整端到端测试"
 echo "============================================"
 
+# 启动 Docker 容器
+start_postgres
+start_redis
+
 log_step "启动后端服务..."
 cd "$PROJECT_ROOT/backend"
-export HTTP_PORT SMPP_PORT DB_PATH ADMIN_PASSWORD
+export HTTP_PORT=$HTTP_PORT
+export SMPP_PORT=$SMPP_PORT
+export DB_TYPE="postgres"
+export DB_HOST="127.0.0.1"
+export DB_PORT=$POSTGRES_PORT
+export DB_NAME=$POSTGRES_DB
+export DB_USER=$POSTGRES_USER
+export DB_PASSWORD=$POSTGRES_PASSWORD
+export REDIS_HOST="127.0.0.1"
+export REDIS_PORT=$REDIS_PORT
+export REDIS_ENABLED="true"
+export ADMIN_PASSWORD=$ADMIN_PASSWORD
 
 go build -o /tmp/smpp-server ./cmd/server/ 2>/dev/null
 /tmp/smpp-server > /tmp/smpp_e2e.log 2>&1 &
@@ -90,6 +184,7 @@ BACKEND_PID=$!
 
 if ! wait_http; then
     log_error "服务启动超时"
+    cat /tmp/smpp_e2e.log
     exit 1
 fi
 log_info "服务已启动"
@@ -180,9 +275,23 @@ fi
 
 log_section "6. 消息状态更新测试"
 
-# 获取一条待处理消息
+# 关闭自动送达回执，发送消息后手动标记送达
+curl -s -X PUT -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    "http://127.0.0.1:$HTTP_PORT/api/mock/config" \
+    -d '{"auto_response":true,"success_rate":100,"response_delay":0,"deliver_report":false}' >/dev/null
+
+# 发送一条消息（不会自动送达）
+test_smpp "手动送达测试消息" \
+    --host 127.0.0.1 --port $SMPP_PORT \
+    send --system-id manual_user --password test \
+    --from 20000 --to 30000 --message "Manual Delivery Test" --encoding GSM7
+
+sleep 1
+
+# 获取这条待处理消息
 PENDING_MSG=$(curl -s -H "Authorization: Bearer $TOKEN" \
-    "http://127.0.0.1:$HTTP_PORT/api/messages?status=pending")
+    "http://127.0.0.1:$HTTP_PORT/api/messages?status=pending&source_addr=20000")
 MSG_ID=$(echo "$PENDING_MSG" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
 if [ ! -z "$MSG_ID" ]; then

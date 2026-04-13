@@ -7,17 +7,49 @@
 set -e
 
 # 配置
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 BACKEND_HOST="127.0.0.1"
 HTTP_PORT="18080"
 SMPP_PORT="12775"
 ADMIN_PASSWORD="admin123"
 TIMEOUT=30
 
-# Go 环境变量
-export PATH=$PATH:/usr/local/go/bin
-export GOPATH=/root/go
-export GOCACHE=/tmp/go-cache
-export GOMODCACHE=/root/go/pkg/mod
+# 检测 Python 命令 (Windows 上 python3 可能是微软商店的占位符，需要实际测试)
+detect_python() {
+    for cmd in python3 python; do
+        if command -v "$cmd" &> /dev/null; then
+            # 实际测试 Python 是否可用（排除微软商店占位符）
+            if "$cmd" --version &> /dev/null; then
+                echo "$cmd"
+                return 0
+            fi
+        fi
+    done
+    echo "Error: Python not found"
+    return 1
+}
+
+PYTHON_CMD=$(detect_python)
+if [ -z "$PYTHON_CMD" ] || [ "$PYTHON_CMD" = "Error: Python not found" ]; then
+    echo "Error: Python not found"
+    exit 1
+fi
+
+# Docker 容器配置
+POSTGRES_CONTAINER="smpp-test-postgres"
+REDIS_CONTAINER="smpp-test-redis"
+POSTGRES_PORT="15432"
+REDIS_PORT="16379"
+POSTGRES_USER="smpp"
+POSTGRES_PASSWORD="smpp_test"
+POSTGRES_DB="smpp_test"
+
+# Go 环境变量 (自动检测，仅在未设置时使用默认值)
+export PATH="${PATH}:/usr/local/go/bin"
+export GOPATH="${GOPATH:-$HOME/go}"
+export GOCACHE="${GOCACHE:-/tmp/go-cache}"
+export GOMODCACHE="${GOMODCACHE:-$HOME/go/pkg/mod}"
 
 # 颜色输出
 RED='\033[0;31m'
@@ -37,14 +69,61 @@ log_section() { echo -e "\n${BLUE}========== $1 ==========${NC}"; }
 
 # 清理函数
 cleanup() {
+    # 停止后端服务
     if [ ! -z "$BACKEND_PID" ]; then
         kill $BACKEND_PID 2>/dev/null || true
         wait $BACKEND_PID 2>/dev/null || true
     fi
-    rm -f /tmp/smpp_test_*.db 2>/dev/null || true
+    # 清理 Docker 容器
+    docker rm -f $POSTGRES_CONTAINER 2>/dev/null || true
+    docker rm -f $REDIS_CONTAINER 2>/dev/null || true
+    # 清理临时文件
     rm -f /tmp/smpp_export_* 2>/dev/null || true
 }
 trap cleanup EXIT
+
+# 启动 PostgreSQL 容器
+start_postgres() {
+    log_info "启动 PostgreSQL 容器..."
+    docker run -d \
+        --name $POSTGRES_CONTAINER \
+        -e POSTGRES_USER=$POSTGRES_USER \
+        -e POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+        -e POSTGRES_DB=$POSTGRES_DB \
+        -p $POSTGRES_PORT:5432 \
+        postgres:16-alpine >/dev/null
+
+    # 等待 PostgreSQL 启动
+    for i in $(seq 1 30); do
+        if docker exec $POSTGRES_CONTAINER pg_isready -U $POSTGRES_USER -d $POSTGRES_DB >/dev/null 2>&1; then
+            log_info "PostgreSQL 已就绪"
+            return 0
+        fi
+        sleep 1
+    done
+    log_error "PostgreSQL 启动超时"
+    return 1
+}
+
+# 启动 Redis 容器
+start_redis() {
+    log_info "启动 Redis 容器..."
+    docker run -d \
+        --name $REDIS_CONTAINER \
+        -p $REDIS_PORT:6379 \
+        redis:7-alpine >/dev/null
+
+    # 等待 Redis 启动
+    for i in $(seq 1 15); do
+        if docker exec $REDIS_CONTAINER redis-cli ping 2>/dev/null | grep -q PONG; then
+            log_info "Redis 已就绪"
+            return 0
+        fi
+        sleep 1
+    done
+    log_error "Redis 启动超时"
+    return 1
+}
 
 check_port() {
     if lsof -i:$1 >/dev/null 2>&1; then
@@ -115,16 +194,30 @@ main() {
     echo "  SMPP-Simulator 完整 E2E 测试"
     echo "============================================"
 
-    cd /root/SMPP-Simulator/backend
+    cd "$PROJECT_ROOT/backend"
 
     log_info "检查端口..."
     check_port $HTTP_PORT
     check_port $SMPP_PORT
+    check_port $POSTGRES_PORT
+    check_port $REDIS_PORT
+
+    # 启动 Docker 容器
+    start_postgres
+    start_redis
 
     log_info "启动后端服务..."
     export HTTP_PORT=$HTTP_PORT
     export SMPP_PORT=$SMPP_PORT
-    export DB_PATH="/tmp/smpp_test_$(date +%s).db"
+    export DB_TYPE="postgres"
+    export DB_HOST="127.0.0.1"
+    export DB_PORT=$POSTGRES_PORT
+    export DB_NAME=$POSTGRES_DB
+    export DB_USER=$POSTGRES_USER
+    export DB_PASSWORD=$POSTGRES_PASSWORD
+    export REDIS_HOST="127.0.0.1"
+    export REDIS_PORT=$REDIS_PORT
+    export REDIS_ENABLED="true"
     export ADMIN_PASSWORD=$ADMIN_PASSWORD
 
     go build -o /tmp/smpp-server ./cmd/server/ 2>/tmp/smpp_build.log
@@ -175,7 +268,7 @@ main() {
     log_section "5. 消息 API"
 
     # 先通过 SMPP 发送一条消息
-    python3 /root/SMPP-Simulator/scripts/smpp_client.py \
+    $PYTHON_CMD "$SCRIPT_DIR/smpp_client.py" \
         --host 127.0.0.1 --port $SMPP_PORT \
         test --system-id test_user --password test --from 10086 --to 13800 --message "Test Message" >/dev/null 2>&1 || true
 
@@ -191,7 +284,7 @@ main() {
         test_api "POST" "/api/messages/$MSG_ID/fail" "" "200" "$TOKEN" "标记失败"
 
         # 获取另一条消息用于批量删除测试
-        python3 /root/SMPP-Simulator/scripts/smpp_client.py \
+        $PYTHON_CMD "$SCRIPT_DIR/smpp_client.py" \
             --host 127.0.0.1 --port $SMPP_PORT \
             test --system-id test_user --password test --from 10087 --to 13801 --message "Batch Test" >/dev/null 2>&1 || true
         sleep 1
@@ -255,7 +348,14 @@ main() {
 
     test_api "GET" "/api/system/config" "" "200" "$TOKEN" "获取系统配置"
     test_api "PUT" "/api/system/config" '{"jwt_expiry":48}' "200" "$TOKEN" "更新系统配置"
-    test_api "GET" "/api/system/redis" "" "200" "$TOKEN" "检查 Redis 状态"
+
+    # Redis 状态测试（验证连接）
+    REDIS_RESPONSE=$(test_api "GET" "/api/system/redis" "" "200" "$TOKEN" "检查 Redis 状态")
+    if echo "$REDIS_RESPONSE" | grep -q '"connected":true'; then
+        log_info "✓ Redis 连接验证成功"
+    else
+        log_error "✗ Redis 连接失败: $REDIS_RESPONSE"
+    fi
 
     # ==================== 限流状态 API ====================
     log_section "11. 限流状态 API"
