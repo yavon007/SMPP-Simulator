@@ -101,17 +101,29 @@ func (d *Database) createTables() error {
 	// Use appropriate syntax for each database
 	var autoIncrement string
 	var timestampType string
+	var boolType string
+	var boolTrue string
+	var boolFalse string
 
 	switch d.dbType {
 	case "postgres", "postgresql":
 		autoIncrement = "SERIAL"
 		timestampType = "TIMESTAMP"
+		boolType = "BOOLEAN"
+		boolTrue = "TRUE"
+		boolFalse = "FALSE"
 	case "mysql":
 		autoIncrement = "INT AUTO_INCREMENT"
 		timestampType = "DATETIME"
+		boolType = "TINYINT(1)"
+		boolTrue = "1"
+		boolFalse = "0"
 	default: // sqlite
 		autoIncrement = "INTEGER"
 		timestampType = "DATETIME"
+		boolType = "INTEGER"
+		boolTrue = "1"
+		boolFalse = "0"
 	}
 
 	queries := []string{
@@ -138,12 +150,12 @@ func (d *Database) createTables() error {
 		)`, timestampType, timestampType),
 		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS mock_config (
 			id %s PRIMARY KEY CHECK (id = 1),
-			auto_response INTEGER NOT NULL DEFAULT 1,
+			auto_response %s NOT NULL DEFAULT %s,
 			success_rate INTEGER NOT NULL DEFAULT 100,
 			response_delay INTEGER NOT NULL DEFAULT 0,
-			deliver_report INTEGER NOT NULL DEFAULT 0,
+			deliver_report %s NOT NULL DEFAULT %s,
 			deliver_delay INTEGER NOT NULL DEFAULT 1000
-		)`, autoIncrement),
+		)`, autoIncrement, boolType, boolTrue, boolType, boolFalse),
 		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS message_templates (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
