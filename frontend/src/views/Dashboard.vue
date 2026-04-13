@@ -196,7 +196,6 @@
 import { onMounted, computed } from 'vue'
 import { Connection, Message, Clock, CircleCheck, Right } from '@element-plus/icons-vue'
 import { useStatsStore, useMessageStore } from '@/stores'
-import { wsClient } from '@/utils/websocket'
 import { useWebSocketEvents } from '@/composables/useWebSocketEvents'
 import { formatTime } from '@/utils/format'
 import { getStatusType, getStatusText } from '@/utils/message'
@@ -274,8 +273,7 @@ onMounted(async () => {
     statsStore.fetchStats(),
     messageStore.fetchMessages({ page_size: 10 })
   ])
-
-  wsClient.connect()
+  // WebSocket 连接由 App.vue 全局维护，此处无需再调用
 })
 </script>
 

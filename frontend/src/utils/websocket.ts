@@ -15,7 +15,8 @@ class WebSocketClient {
   }
 
   connect() {
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    // 防止重复连接：OPEN 或 CONNECTING 状态都跳过
+    if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
       return
     }
 
